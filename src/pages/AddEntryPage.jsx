@@ -33,7 +33,7 @@ export default function AddEntryPage({ onSave }) {
       time,
       mood,
       score: moodScale[mood],
-      note: note.trim(),
+      note: note.trim() || '（无备注）',
       image,
     }
 
@@ -42,15 +42,15 @@ export default function AddEntryPage({ onSave }) {
   }
 
   return (
-    <div className="pt-2">
+    <div>
       <TopBar title="记录现在的心情" />
-      <p className="mb-5 text-xl text-slate-600">此刻你的感觉怎么样?</p>
-      <div className="mb-5 rounded-xl2 bg-card p-4 shadow-soft">
+      <p className="mb-6 text-4xl text-slate-600">此刻你的感觉怎么样?</p>
+      <div className="mb-6 rounded-xl2 bg-card p-5 shadow-soft">
         {moodChoices.map((option) => (
           <button
             key={option}
             onClick={() => setMood(option)}
-            className={`mb-3 h-14 w-full rounded-3xl border text-xl last:mb-0 ${
+            className={`mb-4 h-16 w-full rounded-3xl border text-4xl last:mb-0 ${
               mood === option ? 'border-primary bg-indigo-50 text-primary' : 'border-line text-slate-600'
             }`}
           >
@@ -63,12 +63,12 @@ export default function AddEntryPage({ onSave }) {
         value={note}
         onChange={(event) => setNote(event.target.value)}
         placeholder="写一句此刻发生的事..."
-        className="mb-5 h-44 w-full resize-none rounded-xl2 border-0 bg-card p-5 text-xl text-textMain shadow-soft placeholder:text-base placeholder:text-textMuted focus:outline-none"
+        className="mb-6 h-48 w-full resize-none rounded-xl2 border-0 bg-card p-6 text-4xl text-textMain shadow-soft placeholder:text-textMuted focus:outline-none"
       />
 
-      <button onClick={handlePickImage} className="mb-3 flex h-24 w-full items-center justify-center gap-2 rounded-xl2 bg-card text-lg text-textMuted shadow-soft">
+      <button onClick={handlePickImage} className="mb-4 flex h-28 w-full items-center justify-center gap-3 rounded-xl2 bg-card text-4xl text-textMuted shadow-soft">
         <span>
-          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" />
             <path d="M12 15V4" />
             <path d="m8 8 4-4 4 4" />
@@ -79,12 +79,12 @@ export default function AddEntryPage({ onSave }) {
 
       <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
 
-      {image && <img src={image} alt="预览" className="mb-6 h-20 w-20 rounded-2xl object-cover" />}
+      {image && <img src={image} alt="预览" className="mb-8 h-24 w-24 rounded-2xl object-cover" />}
 
       <button
         onClick={handleSave}
         disabled={!mood}
-        className="h-14 w-full rounded-xl2 bg-primary text-xl font-medium text-white shadow-soft disabled:cursor-not-allowed disabled:opacity-50"
+        className="h-16 w-full rounded-xl2 bg-primary text-4xl text-white shadow-soft disabled:cursor-not-allowed disabled:opacity-50"
       >
         保存这次心情
       </button>

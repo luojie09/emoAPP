@@ -7,5 +7,5 @@ const tone = {
 }
 
 export default function EmotionTag({ mood }) {
-  return <span className={`rounded-full px-3 py-1 text-lg font-medium ${tone[mood] ?? 'bg-slate-100 text-slate-700'}`}>{mood}</span>
+  return <span className={`rounded-full px-4 py-1 text-3xl font-medium ${tone[mood] ?? 'bg-slate-100 text-slate-700'}`}>{mood}</span>
 }

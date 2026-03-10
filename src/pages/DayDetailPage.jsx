@@ -13,20 +13,20 @@ export default function DayDetailPage({ entries }) {
   )
 
   return (
-    <div className="pt-2">
+    <div>
       <TopBar title={formatDayLabel(date ?? '')} />
       {records.length ? (
         <>
           <MoodChart data={records} />
-          <h2 className="mb-3 mt-6 text-2xl font-medium text-slate-600">这一天的记录</h2>
+          <h2 className="mb-4 mt-8 text-5xl text-slate-600">这一天的记录</h2>
           {records.map((record) => (
             <RecordCard key={record.id} record={record} />
           ))}
         </>
       ) : (
-        <div className="rounded-xl2 bg-card p-7 text-center shadow-soft">
-          <p className="mb-1.5 text-2xl text-slate-600">这一天没有记录</p>
-          <p className="text-sm text-textMuted">请返回历史列表选择其他日期。</p>
+        <div className="rounded-xl2 bg-card p-8 text-center shadow-soft">
+          <p className="mb-2 text-4xl text-slate-600">这一天没有记录</p>
+          <p className="text-2xl text-textMuted">请返回历史列表选择其他日期。</p>
         </div>
       )}
     </div>

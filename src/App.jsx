@@ -41,7 +41,7 @@ export default function App() {
       </Routes>
     </Layout>
   ) : (
-    <div className="mx-auto min-h-screen max-w-md bg-bg px-4 pb-10 pt-5">
+    <div className="mx-auto min-h-screen max-w-md bg-bg px-4 pb-10 pt-4">
       <Routes>
         <Route path="/add" element={<AddEntryPage onSave={setEntries} />} />
         <Route path="/history/:date" element={<DayDetailPage entries={entries} />} />
