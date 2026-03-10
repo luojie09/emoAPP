@@ -47,7 +47,7 @@ export default function AddEntryPage({ onSave }) {
       <p className="text-base text-gray-700">此刻你的感觉怎么样?</p>
 
       <div className="space-y-3 rounded-2xl bg-white p-4 shadow-sm">
-        {moodChoices.map((option) => (
+        {[...moodChoices].reverse().map((option) => (
           <button
             key={option}
             onClick={() => setMood(option)}
