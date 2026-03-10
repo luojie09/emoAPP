@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import TopBar from '../components/TopBar'
-import { moodChoices } from '../data'
+import { formatMoodLabel, moodChoices } from '../data'
 import { getTodayKey, moodScale } from '../utils'
 
 export default function AddEntryPage({ onSave }) {
@@ -55,7 +55,7 @@ export default function AddEntryPage({ onSave }) {
               mood === option ? 'border-indigo-200 bg-indigo-50 text-indigo-600' : 'border-gray-100 bg-white text-gray-700'
             }`}
           >
-            {option}
+            {formatMoodLabel(option)}
           </button>
         ))}
       </div>
