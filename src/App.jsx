@@ -10,17 +10,16 @@ import { getTodayKey, groupEntriesByDay, readEntries, writeEntries } from './uti
 export default function App() {
   const location = useLocation()
   const [entries, setEntries] = useState([])
-  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     setEntries(readEntries())
-    setReady(true)
   }, [])
 
-  useEffect(() => {
-    if (!ready) return
-    writeEntries(entries)
-  }, [entries, ready])
+  const handleAddEntry = (entry) => {
+    const nextEntries = [...entries, entry]
+    writeEntries(nextEntries)
+    setEntries(nextEntries)
+  }
 
   const todayKey = getTodayKey()
   const todayEntries = useMemo(
@@ -43,7 +42,7 @@ export default function App() {
   ) : (
     <div className="mx-auto min-h-screen max-w-md bg-slate-50 px-4 pb-10 pt-5">
       <Routes>
-        <Route path="/add" element={<AddEntryPage onSave={setEntries} />} />
+        <Route path="/add" element={<AddEntryPage onSave={handleAddEntry} />} />
         <Route path="/history/:date" element={<DayDetailPage entries={entries} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
