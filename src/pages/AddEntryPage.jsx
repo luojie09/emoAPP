@@ -33,7 +33,7 @@ export default function AddEntryPage({ onSave }) {
       time,
       mood,
       score: moodScale[mood],
-      note: note.trim() || '（无备注）',
+      note: note.trim(),
       image,
     }
 
@@ -42,16 +42,17 @@ export default function AddEntryPage({ onSave }) {
   }
 
   return (
-    <div>
+    <div className="space-y-4 pt-3">
       <TopBar title="记录现在的心情" />
-      <p className="mb-6 text-4xl text-slate-600">此刻你的感觉怎么样?</p>
-      <div className="mb-6 rounded-xl2 bg-card p-5 shadow-soft">
+      <p className="text-base text-gray-700">此刻你的感觉怎么样?</p>
+
+      <div className="space-y-3 rounded-2xl bg-white p-4 shadow-sm">
         {moodChoices.map((option) => (
           <button
             key={option}
             onClick={() => setMood(option)}
-            className={`mb-4 h-16 w-full rounded-3xl border text-4xl last:mb-0 ${
-              mood === option ? 'border-primary bg-indigo-50 text-primary' : 'border-line text-slate-600'
+            className={`w-full rounded-xl border py-3 text-base ${
+              mood === option ? 'border-indigo-200 bg-indigo-50 text-indigo-600' : 'border-gray-100 bg-white text-gray-700'
             }`}
           >
             {option}
@@ -59,16 +60,21 @@ export default function AddEntryPage({ onSave }) {
         ))}
       </div>
 
-      <textarea
-        value={note}
-        onChange={(event) => setNote(event.target.value)}
-        placeholder="写一句此刻发生的事..."
-        className="mb-6 h-48 w-full resize-none rounded-xl2 border-0 bg-card p-6 text-4xl text-textMain shadow-soft placeholder:text-textMuted focus:outline-none"
-      />
+      <div className="rounded-2xl bg-white p-4 shadow-sm">
+        <textarea
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          placeholder="写一句此刻发生的事..."
+          className="h-36 w-full resize-none border-0 bg-transparent p-0 text-base text-gray-700 placeholder:text-sm placeholder:text-gray-400 focus:outline-none"
+        />
+      </div>
 
-      <button onClick={handlePickImage} className="mb-4 flex h-28 w-full items-center justify-center gap-3 rounded-xl2 bg-card text-4xl text-textMuted shadow-soft">
+      <button
+        onClick={handlePickImage}
+        className="flex h-24 w-full items-center justify-center gap-2 rounded-2xl bg-white text-sm text-gray-400 shadow-sm"
+      >
         <span>
-          <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" />
             <path d="M12 15V4" />
             <path d="m8 8 4-4 4 4" />
@@ -79,12 +85,16 @@ export default function AddEntryPage({ onSave }) {
 
       <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
 
-      {image && <img src={image} alt="预览" className="mb-8 h-24 w-24 rounded-2xl object-cover" />}
+      {image && (
+        <div className="rounded-2xl bg-white p-4 shadow-sm">
+          <img src={image} alt="预览" className="h-20 w-20 rounded-xl object-cover" />
+        </div>
+      )}
 
       <button
         onClick={handleSave}
         disabled={!mood}
-        className="h-16 w-full rounded-xl2 bg-primary text-4xl text-white shadow-soft disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-xl bg-indigo-500 py-4 text-base font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
       >
         保存这次心情
       </button>
