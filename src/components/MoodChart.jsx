@@ -1,5 +1,5 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { formatScoreMood, moodEmojiByScore } from '../data'
+import { formatEmotionLabel, scoreEmoji } from '../data'
 
 function MoodTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
@@ -8,7 +8,7 @@ function MoodTooltip({ active, payload, label }) {
   return (
     <div className="rounded-xl border border-gray-100 bg-white px-3 py-2 shadow-sm">
       <p className="text-xs text-gray-400">{label}</p>
-      <p className="text-sm text-gray-700">{formatScoreMood(point.score, point.mood)}</p>
+      <p className="text-sm text-gray-700">{formatEmotionLabel(point.emotion)}</p>
     </div>
   )
 }
@@ -24,7 +24,7 @@ export default function MoodChart({ data }) {
             <YAxis
               domain={[1, 5]}
               ticks={[1, 2, 3, 4, 5]}
-              tickFormatter={(value) => moodEmojiByScore[value] ?? ''}
+              tickFormatter={(value) => scoreEmoji[value] ?? value}
               stroke="#9CA3AF"
               tickLine={false}
               axisLine={false}

@@ -6,7 +6,7 @@ export default function RecordCard({ record }) {
   return (
     <article className="rounded-2xl bg-white p-4 shadow-sm">
       <div className="mb-2 flex items-center gap-2">
-        <EmotionTag mood={record.mood} />
+        <EmotionTag emotion={record.emotion} />
         <span className="text-sm text-gray-400">{record.time}</span>
       </div>
       {hasNote ? (

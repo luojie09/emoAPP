@@ -1,3 +1,5 @@
+import { DEFAULT_EMOTION, findEmotionByLabel, findEmotionByScore } from './data'
+
 export const STORAGE_KEY = 'emoapp.entries.v1'
 
 export const moodScale = {
@@ -18,13 +20,52 @@ export function formatDayLabel(dateKey) {
   return `${m}月${d}日`
 }
 
+function normalizeEmotion(rawEntry) {
+  if (rawEntry?.emotion?.label && rawEntry?.emotion?.emoji && Number(rawEntry?.emotion?.score)) {
+    return {
+      emoji: rawEntry.emotion.emoji,
+      label: rawEntry.emotion.label,
+      score: Number(rawEntry.emotion.score),
+    }
+  }
+
+  if (rawEntry?.mood) {
+    const matchByLabel = findEmotionByLabel(rawEntry.mood)
+    if (matchByLabel) return matchByLabel
+
+    const legacyScore = moodScale[rawEntry.mood]
+    if (legacyScore) return findEmotionByScore(legacyScore)
+  }
+
+  if (Number(rawEntry?.score)) {
+    return findEmotionByScore(Number(rawEntry.score))
+  }
+
+  return DEFAULT_EMOTION
+}
+
+function normalizeEntry(rawEntry, index) {
+  const emotion = normalizeEmotion(rawEntry)
+  return {
+    id: rawEntry?.id ?? `${Date.now()}-${index}`,
+    date: rawEntry?.date ?? getTodayKey(),
+    time: rawEntry?.time ?? '00:00',
+    note: typeof rawEntry?.note === 'string' ? rawEntry.note : '',
+    image: typeof rawEntry?.image === 'string' ? rawEntry.image : '',
+    emotion,
+    score: emotion.score,
+    mood: emotion.label,
+  }
+}
+
 export function readEntries() {
   const raw = localStorage.getItem(STORAGE_KEY)
   if (!raw) return []
 
   try {
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
+    if (!Array.isArray(parsed)) return []
+    return parsed.map((entry, index) => normalizeEntry(entry, index))
   } catch {
     return []
   }

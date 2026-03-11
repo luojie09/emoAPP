@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import TopBar from '../components/TopBar'
-import { formatMoodLabel, moodChoices } from '../data'
-import { getTodayKey, moodScale } from '../utils'
+import { EMOTIONS } from '../data'
+import { getTodayKey } from '../utils'
 
 const MAX_IMAGE_EDGE = 800
 const JPEG_QUALITY = 0.6
@@ -44,7 +44,7 @@ function compressImageToBase64(file) {
 export default function AddEntryPage({ onSave }) {
   const navigate = useNavigate()
   const imageInputRef = useRef(null)
-  const [mood, setMood] = useState('')
+  const [emotion, setEmotion] = useState(null)
   const [note, setNote] = useState('')
   const [image, setImage] = useState('')
 
@@ -64,7 +64,7 @@ export default function AddEntryPage({ onSave }) {
   }
 
   const handleSave = () => {
-    if (!mood) return
+    if (!emotion) return
 
     const now = new Date()
     const time = now.toTimeString().slice(0, 5)
@@ -72,8 +72,9 @@ export default function AddEntryPage({ onSave }) {
       id: `${Date.now()}`,
       date: getTodayKey(),
       time,
-      mood,
-      score: moodScale[mood],
+      emotion,
+      score: emotion.score,
+      mood: emotion.label,
       note: note.trim(),
       image,
     }
@@ -102,18 +103,24 @@ export default function AddEntryPage({ onSave }) {
       <TopBar title="记录现在的心情" />
       <p className="text-base text-gray-700">此刻你的感觉怎么样?</p>
 
-      <div className="space-y-3 rounded-2xl bg-white p-4 shadow-sm">
-        {[...moodChoices].reverse().map((option) => (
-          <button
-            key={option}
-            onClick={() => setMood(option)}
-            className={`w-full rounded-xl border py-3 text-base ${
-              mood === option ? 'border-indigo-200 bg-indigo-50 text-indigo-600' : 'border-gray-100 bg-white text-gray-700'
-            }`}
-          >
-            {formatMoodLabel(option)}
-          </button>
-        ))}
+      <div className="rounded-2xl bg-white p-4 shadow-sm">
+        <div className="grid grid-cols-3 gap-3">
+          {EMOTIONS.map((option) => {
+            const isSelected = emotion?.emoji === option.emoji && emotion?.label === option.label
+            return (
+              <button
+                key={`${option.emoji}-${option.label}`}
+                onClick={() => setEmotion(option)}
+                className={`flex h-20 flex-col items-center justify-center rounded-xl border py-2 ${
+                  isSelected ? 'border-indigo-200 bg-indigo-50' : 'border-gray-100 bg-white'
+                }`}
+              >
+                <span className="text-3xl leading-none">{option.emoji}</span>
+                <span className="mt-1 text-xs text-gray-500">{option.label}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-sm">
@@ -149,7 +156,7 @@ export default function AddEntryPage({ onSave }) {
 
       <button
         onClick={handleSave}
-        disabled={!mood}
+        disabled={!emotion}
         className="w-full rounded-xl bg-indigo-500 py-4 text-base font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
       >
         保存这次心情
