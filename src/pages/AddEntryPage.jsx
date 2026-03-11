@@ -6,7 +6,6 @@ import { getTodayKey } from '../utils'
 
 const MAX_IMAGE_EDGE = 800
 const JPEG_QUALITY = 0.6
-const MAX_UPLOAD_SIZE = 5 * 1024 * 1024
 
 function compressImageToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -42,7 +41,7 @@ function compressImageToBase64(file) {
   })
 }
 
-export default function AddEntryPage({ onSave, onToast }) {
+export default function AddEntryPage({ onSave }) {
   const navigate = useNavigate()
   const imageInputRef = useRef(null)
   const [emotion, setEmotion] = useState(null)
@@ -55,18 +54,12 @@ export default function AddEntryPage({ onSave, onToast }) {
     const file = event.target.files?.[0]
     if (!file) return
 
-    if (file.size > MAX_UPLOAD_SIZE) {
-      onToast('存储空间已满，请清理或不带图片保存')
-      event.target.value = ''
-      return
-    }
-
     try {
       const compressedBase64 = await compressImageToBase64(file)
       setImage(compressedBase64)
     } catch {
       setImage('')
-      onToast('图片处理失败，请重试')
+      alert('图片处理失败，请重试')
     }
   }
 
@@ -97,7 +90,7 @@ export default function AddEntryPage({ onSave, onToast }) {
         error?.code === 1014
 
       if (isQuotaError) {
-        onToast('存储空间已满，请清理或不带图片保存')
+        alert('本地存储空间已满，请清理历史数据或不带图片保存')
         return
       }
 
@@ -118,7 +111,7 @@ export default function AddEntryPage({ onSave, onToast }) {
               <button
                 key={`${option.emoji}-${option.label}`}
                 onClick={() => setEmotion(option)}
-                className={`flex h-20 flex-col items-center justify-center rounded-xl border py-2 transition-all duration-200 active:scale-95 hover:scale-105 hover:shadow-md ${
+                className={`flex h-20 flex-col items-center justify-center rounded-xl border py-2 ${
                   isSelected ? 'border-indigo-200 bg-indigo-50' : 'border-gray-100 bg-white'
                 }`}
               >
