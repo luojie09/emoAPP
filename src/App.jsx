@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import Layout from './components/Layout'
+import Toast from './components/Toast'
 import AddEntryPage from './pages/AddEntryPage'
 import DayDetailPage from './pages/DayDetailPage'
 import HistoryPage from './pages/HistoryPage'
@@ -10,10 +11,16 @@ import { getTodayKey, groupEntriesByDay, readEntries, writeEntries } from './uti
 export default function App() {
   const location = useLocation()
   const [entries, setEntries] = useState([])
+  const [toastMessage, setToastMessage] = useState('')
 
   useEffect(() => {
     setEntries(readEntries())
   }, [])
+
+  const showToast = (message, duration = 1800) => {
+    setToastMessage(message)
+    window.setTimeout(() => setToastMessage(''), duration)
+  }
 
   const handleAddEntry = (entry) => {
     const nextEntries = [...entries, entry]
@@ -31,21 +38,26 @@ export default function App() {
 
   const withTabs = !location.pathname.startsWith('/add') && !location.pathname.startsWith('/history/')
 
-  return withTabs ? (
-    <Layout>
-      <Routes>
-        <Route path="/" element={<TodayPage records={todayEntries} />} />
-        <Route path="/history" element={<HistoryPage historyDays={historyDays} />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Layout>
-  ) : (
-    <div className="mx-auto min-h-screen max-w-md bg-slate-50 px-4 pb-10 pt-5">
-      <Routes>
-        <Route path="/add" element={<AddEntryPage onSave={handleAddEntry} />} />
-        <Route path="/history/:date" element={<DayDetailPage entries={entries} />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </div>
+  return (
+    <>
+      <Toast message={toastMessage} />
+      {withTabs ? (
+        <Layout>
+          <Routes>
+            <Route path="/" element={<TodayPage records={todayEntries} />} />
+            <Route path="/history" element={<HistoryPage historyDays={historyDays} onToast={showToast} />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Layout>
+      ) : (
+        <div className="mx-auto min-h-screen max-w-md bg-slate-50 px-4 pb-10 pt-5">
+          <Routes>
+            <Route path="/add" element={<AddEntryPage onSave={handleAddEntry} onToast={showToast} />} />
+            <Route path="/history/:date" element={<DayDetailPage entries={entries} />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+      )}
+    </>
   )
 }

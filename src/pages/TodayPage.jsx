@@ -1,12 +1,24 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import MoodChart from '../components/MoodChart'
 import RecordCard from '../components/RecordCard'
 
+const scoreGlowTone = {
+  5: 'bg-gradient-to-b from-orange-50 to-slate-50',
+  4: 'bg-gradient-to-b from-green-50 to-slate-50',
+  3: 'bg-gradient-to-b from-gray-100 to-slate-50',
+  2: 'bg-gradient-to-b from-purple-50 to-slate-50',
+  1: 'bg-gradient-to-b from-blue-50 to-slate-50',
+}
+
 export default function TodayPage({ records }) {
-  const hasRecords = records.length > 0
+  const chartRecords = useMemo(() => [...records].sort((a, b) => a.time.localeCompare(b.time)), [records])
+  const listRecords = useMemo(() => [...records].sort((a, b) => b.time.localeCompare(a.time)), [records])
+  const latestRecord = listRecords[0]
+  const hasRecords = listRecords.length > 0
 
   return (
-    <div className="space-y-4">
+    <div className={`space-y-4 rounded-2xl p-1 ${scoreGlowTone[latestRecord?.score] ?? 'bg-slate-50'}`}>
       <h1 className="text-2xl font-medium text-gray-800">今天</h1>
 
       <Link
@@ -19,12 +31,12 @@ export default function TodayPage({ records }) {
 
       {hasRecords ? (
         <>
-          <MoodChart data={records} />
+          <MoodChart data={chartRecords} />
 
           <h2 className="pt-1 text-xl font-medium text-gray-800">今天的记录</h2>
 
           <div className="space-y-4">
-            {records.map((record) => (
+            {listRecords.map((record) => (
               <RecordCard key={record.id} record={record} />
             ))}
           </div>
