@@ -1,5 +1,5 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { formatEmotionLabel, scoreEmoji } from '../data'
+import { formatEmotionLabel } from '../data'
 
 function MoodTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
@@ -24,11 +24,10 @@ export default function MoodChart({ data }) {
             <YAxis
               domain={[1, 5]}
               ticks={[1, 2, 3, 4, 5]}
-              tickFormatter={(value) => scoreEmoji[value] ?? value}
-              stroke="#9CA3AF"
+              tick={false}
               tickLine={false}
               axisLine={false}
-              fontSize={12}
+              width={0}
             />
             <Tooltip content={<MoodTooltip />} cursor={{ stroke: '#C7D2FE', strokeWidth: 1 }} />
             <Line type="monotone" dataKey="score" stroke="#6366F1" strokeWidth={3} dot={{ r: 4.5, fill: '#6366F1' }} />

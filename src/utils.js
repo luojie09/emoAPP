@@ -90,7 +90,7 @@ export function groupEntriesByDay(entries) {
         date,
         count: records.length,
         avg: Number(avg.toFixed(1)),
-        records: [...records].sort((a, b) => a.time.localeCompare(b.time)),
+        records: [...records].sort((a, b) => b.time.localeCompare(a.time)),
       }
     })
     .sort((a, b) => b.date.localeCompare(a.date))

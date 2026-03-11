@@ -23,7 +23,7 @@ export default function App() {
 
   const todayKey = getTodayKey()
   const todayEntries = useMemo(
-    () => entries.filter((entry) => entry.date === todayKey).sort((a, b) => a.time.localeCompare(b.time)),
+    () => entries.filter((entry) => entry.date === todayKey).sort((a, b) => b.time.localeCompare(a.time)),
     [entries, todayKey],
   )
 

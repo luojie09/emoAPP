@@ -8,7 +8,7 @@ import { formatDayLabel } from '../utils'
 export default function DayDetailPage({ entries }) {
   const { date } = useParams()
   const records = useMemo(
-    () => entries.filter((entry) => entry.date === date).sort((a, b) => a.time.localeCompare(b.time)),
+    () => entries.filter((entry) => entry.date === date).sort((a, b) => b.time.localeCompare(a.time)),
     [entries, date],
   )
 
