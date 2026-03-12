@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { formatEmotionLabel } from '../data'
 
@@ -5,6 +6,8 @@ function MoodTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
 
   const point = payload[0].payload
+  if (point?.isVirtualBaseline) return null
+
   return (
     <div className="rounded-xl border border-gray-100 bg-white px-3 py-2 shadow-sm">
       <p className="text-xs text-gray-400">{label}</p>
@@ -14,11 +17,16 @@ function MoodTooltip({ active, payload, label }) {
 }
 
 export default function MoodChart({ data }) {
+  const chartData = useMemo(() => {
+    const sortedRecords = [...data].sort((a, b) => a.time.localeCompare(b.time))
+    return [{ id: 'baseline-00:00', time: '00:00', score: 3, isVirtualBaseline: true }, ...sortedRecords]
+  }, [data])
+
   return (
     <div className="rounded-2xl bg-white p-4 shadow-sm">
       <div className="h-52 w-full">
         <ResponsiveContainer>
-          <LineChart data={data} margin={{ top: 12, right: 10, left: -20, bottom: 2 }}>
+          <LineChart data={chartData} margin={{ top: 12, right: 10, left: -20, bottom: 2 }}>
             <CartesianGrid vertical={false} stroke="#E5E7EB" strokeDasharray="4 4" />
             <XAxis dataKey="time" stroke="#9CA3AF" tickLine={false} axisLine={{ stroke: '#E5E7EB' }} fontSize={12} />
             <YAxis

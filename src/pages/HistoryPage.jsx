@@ -1,9 +1,36 @@
-import { useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { formatDayLabel, readEntries, writeEntries } from '../utils'
 
-export default function HistoryPage({ historyDays }) {
+const scoreBorderTone = {
+  5: 'border-orange-400',
+  4: 'border-green-400',
+  3: 'border-gray-300',
+  2: 'border-purple-400',
+  1: 'border-blue-400',
+}
+
+export default function HistoryPage({ historyDays, onToast }) {
   const importInputRef = useRef(null)
+  const [viewMode, setViewMode] = useState('all')
+
+  const visibleDays = useMemo(() => {
+    if (viewMode === 'all') return historyDays
+
+    return historyDays
+      .map((day) => {
+        const favoriteRecords = day.records.filter((record) => record.isFavorite)
+        if (!favoriteRecords.length) return null
+        const avg = favoriteRecords.reduce((sum, item) => sum + item.score, 0) / favoriteRecords.length
+        return {
+          ...day,
+          count: favoriteRecords.length,
+          avg: Number(avg.toFixed(1)),
+          records: favoriteRecords,
+        }
+      })
+      .filter(Boolean)
+  }, [historyDays, viewMode])
 
   const handleExport = () => {
     const data = readEntries()
@@ -17,6 +44,7 @@ export default function HistoryPage({ historyDays }) {
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
+    onToast('数据备份已导出')
   }
 
   const handlePickImportFile = () => importInputRef.current?.click()
@@ -31,10 +59,10 @@ export default function HistoryPage({ historyDays }) {
       if (!Array.isArray(parsed)) throw new Error('invalid-format')
 
       writeEntries(parsed)
-      alert('数据导入成功！')
-      window.location.reload()
+      onToast('数据导入成功！')
+      window.setTimeout(() => window.location.reload(), 1500)
     } catch {
-      alert('导入失败，请确认文件格式正确')
+      onToast('导入失败，请确认文件格式正确')
     } finally {
       event.target.value = ''
     }
@@ -44,29 +72,49 @@ export default function HistoryPage({ historyDays }) {
     <div className="space-y-4">
       <h1 className="text-2xl font-medium text-gray-800">历史</h1>
 
-      {!historyDays.length ? (
+      <div className="flex gap-2 rounded-2xl bg-white p-2 shadow-sm">
+        <button
+          onClick={() => setViewMode('all')}
+          className={`flex-1 rounded-xl py-2 text-sm ${viewMode === 'all' ? 'bg-gray-100 text-gray-700' : 'text-gray-400'}`}
+        >
+          全部记录
+        </button>
+        <button
+          onClick={() => setViewMode('favorites')}
+          className={`flex-1 rounded-xl py-2 text-sm ${viewMode === 'favorites' ? 'bg-gray-100 text-gray-700' : 'text-gray-400'}`}
+        >
+          ⭐ 我的收藏
+        </button>
+      </div>
+
+      {!visibleDays.length ? (
         <div className="rounded-2xl bg-white p-4 text-center shadow-sm">
           <p className="text-base text-gray-700">还没有历史记录</p>
           <p className="mt-1 text-sm text-gray-400">先在“今天”页添加一条心情。</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {historyDays.map((day) => (
-            <Link
-              to={`/history/${day.date}`}
-              key={day.date}
-              className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm"
-            >
-              <div>
-                <p className="text-base font-medium text-gray-800">
-                  {formatDayLabel(day.date)}
-                  <span className="ml-2 text-sm font-normal text-gray-400">{day.count} 条记录</span>
-                </p>
-                <p className="mt-1 text-sm text-gray-700">平均情绪：{day.avg}</p>
-              </div>
-              <span className="text-2xl text-gray-400">›</span>
-            </Link>
-          ))}
+          {visibleDays.map((day) => {
+            const latestScore = day.records?.[0]?.score
+            return (
+              <Link
+                to={`/history/${day.date}`}
+                key={day.date}
+                className={`flex items-center justify-between rounded-2xl border-l-4 bg-white p-4 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md ${
+                  scoreBorderTone[latestScore] ?? 'border-gray-300'
+                }`}
+              >
+                <div>
+                  <p className="text-base font-medium text-gray-800">
+                    {formatDayLabel(day.date)}
+                    <span className="ml-2 text-sm font-normal text-gray-400">{day.count} 条记录</span>
+                  </p>
+                  <p className="mt-1 text-sm text-gray-700">平均情绪：{day.avg}</p>
+                </div>
+                <span className="text-2xl text-gray-400">›</span>
+              </Link>
+            )
+          })}
         </div>
       )}
 

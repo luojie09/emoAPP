@@ -55,6 +55,7 @@ function normalizeEntry(rawEntry, index) {
     emotion,
     score: emotion.score,
     mood: emotion.label,
+    isFavorite: Boolean(rawEntry?.isFavorite),
   }
 }
 

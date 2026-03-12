@@ -6,6 +6,12 @@ import { getTodayKey } from '../utils'
 
 const MAX_IMAGE_EDGE = 800
 const JPEG_QUALITY = 0.6
+const MAX_UPLOAD_SIZE = 5 * 1024 * 1024
+
+function toDateTimeLocalValue(date) {
+  const pad = (v) => String(v).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
 
 function compressImageToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -41,12 +47,13 @@ function compressImageToBase64(file) {
   })
 }
 
-export default function AddEntryPage({ onSave }) {
+export default function AddEntryPage({ onSave, onToast }) {
   const navigate = useNavigate()
   const imageInputRef = useRef(null)
   const [emotion, setEmotion] = useState(null)
   const [note, setNote] = useState('')
   const [image, setImage] = useState('')
+  const [selectedDateTime, setSelectedDateTime] = useState(() => toDateTimeLocalValue(new Date()))
 
   const handlePickImage = () => imageInputRef.current?.click()
 
@@ -54,29 +61,39 @@ export default function AddEntryPage({ onSave }) {
     const file = event.target.files?.[0]
     if (!file) return
 
+    if (file.size > MAX_UPLOAD_SIZE) {
+      onToast('存储空间已满，请清理或不带图片保存')
+      event.target.value = ''
+      return
+    }
+
     try {
       const compressedBase64 = await compressImageToBase64(file)
       setImage(compressedBase64)
     } catch {
       setImage('')
-      alert('图片处理失败，请重试')
+      onToast('图片处理失败，请重试')
     }
   }
 
   const handleSave = () => {
     if (!emotion) return
 
-    const now = new Date()
-    const time = now.toTimeString().slice(0, 5)
+    const selected = selectedDateTime ? new Date(selectedDateTime) : new Date()
+    const validDate = Number.isNaN(selected.getTime()) ? new Date() : selected
+    const date = validDate.toISOString().slice(0, 10)
+    const time = `${String(validDate.getHours()).padStart(2, '0')}:${String(validDate.getMinutes()).padStart(2, '0')}`
+
     const entry = {
       id: `${Date.now()}`,
-      date: getTodayKey(),
+      date: date || getTodayKey(),
       time,
       emotion,
       score: emotion.score,
       mood: emotion.label,
       note: note.trim(),
       image,
+      isFavorite: false,
     }
 
     try {
@@ -90,7 +107,7 @@ export default function AddEntryPage({ onSave }) {
         error?.code === 1014
 
       if (isQuotaError) {
-        alert('本地存储空间已满，请清理历史数据或不带图片保存')
+        onToast('存储空间已满，请清理或不带图片保存')
         return
       }
 
@@ -111,7 +128,7 @@ export default function AddEntryPage({ onSave }) {
               <button
                 key={`${option.emoji}-${option.label}`}
                 onClick={() => setEmotion(option)}
-                className={`flex h-20 flex-col items-center justify-center rounded-xl border py-2 ${
+                className={`flex h-20 flex-col items-center justify-center rounded-xl border py-2 transition-all duration-200 active:scale-95 hover:scale-105 hover:shadow-md ${
                   isSelected ? 'border-indigo-200 bg-indigo-50' : 'border-gray-100 bg-white'
                 }`}
               >
@@ -129,6 +146,15 @@ export default function AddEntryPage({ onSave }) {
           onChange={(event) => setNote(event.target.value)}
           placeholder="写一句此刻发生的事..."
           className="h-36 w-full resize-none border-0 bg-transparent p-0 text-base text-gray-700 placeholder:text-sm placeholder:text-gray-400 focus:outline-none"
+        />
+      </div>
+
+      <div className="rounded-2xl bg-white p-4 shadow-sm">
+        <input
+          type="datetime-local"
+          value={selectedDateTime}
+          onChange={(event) => setSelectedDateTime(event.target.value)}
+          className="w-full rounded-xl border border-gray-100 bg-white px-3 py-3 text-sm text-gray-700 focus:outline-none"
         />
       </div>
 

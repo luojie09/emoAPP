@@ -5,24 +5,24 @@ import RecordCard from '../components/RecordCard'
 import TopBar from '../components/TopBar'
 import { formatDayLabel } from '../utils'
 
-export default function DayDetailPage({ entries }) {
+export default function DayDetailPage({ entries, onToggleFavorite }) {
   const { date } = useParams()
-  const records = useMemo(
-    () => entries.filter((entry) => entry.date === date).sort((a, b) => b.time.localeCompare(a.time)),
-    [entries, date],
-  )
+
+  const dayRecords = useMemo(() => entries.filter((entry) => entry.date === date), [entries, date])
+  const chartRecords = useMemo(() => [...dayRecords].sort((a, b) => a.time.localeCompare(b.time)), [dayRecords])
+  const listRecords = useMemo(() => [...dayRecords].sort((a, b) => b.time.localeCompare(a.time)), [dayRecords])
 
   return (
     <div className="space-y-4 pt-3">
       <TopBar title={formatDayLabel(date ?? '')} />
 
-      {records.length ? (
+      {listRecords.length ? (
         <>
-          <MoodChart data={records} />
+          <MoodChart data={chartRecords} />
           <h2 className="text-xl font-medium text-gray-800">这一天的记录</h2>
           <div className="space-y-4">
-            {records.map((record) => (
-              <RecordCard key={record.id} record={record} />
+            {listRecords.map((record) => (
+              <RecordCard key={record.id} record={record} onToggleFavorite={onToggleFavorite} />
             ))}
           </div>
         </>
