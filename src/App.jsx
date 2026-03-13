@@ -77,8 +77,9 @@ export default function App() {
   }, [session])
 
   const handleAuth = async ({ email, password, isSignUp }) => {
-    const authFn = isSignUp ? supabase.auth.signUp : supabase.auth.signInWithPassword
-    const { error } = await authFn({ email, password })
+    const { error } = isSignUp
+      ? await supabase.auth.signUp({ email, password })
+      : await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
       showToast(error.message)
