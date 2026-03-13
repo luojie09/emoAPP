@@ -133,7 +133,6 @@ export default function AddEntryPage({ onSave, onToast }) {
                 }`}
               >
                 <span className="text-3xl leading-none">{option.emoji}</span>
-                <span className="mt-1 text-xs text-gray-500">{option.label}</span>
               </button>
             )
           })}

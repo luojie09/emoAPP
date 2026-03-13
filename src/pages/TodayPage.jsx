@@ -11,7 +11,7 @@ const scoreGlowTone = {
   1: 'bg-gradient-to-b from-blue-50 to-slate-50',
 }
 
-export default function TodayPage({ records, onToggleFavorite }) {
+export default function TodayPage({ records, onToggleFavorite, onLogout }) {
   const chartRecords = useMemo(() => [...records].sort((a, b) => a.time.localeCompare(b.time)), [records])
   const listRecords = useMemo(() => [...records].sort((a, b) => b.time.localeCompare(a.time)), [records])
   const latestRecord = listRecords[0]
@@ -19,7 +19,12 @@ export default function TodayPage({ records, onToggleFavorite }) {
 
   return (
     <div className={`space-y-4 rounded-2xl p-1 ${scoreGlowTone[latestRecord?.score] ?? 'bg-slate-50'}`}>
-      <h1 className="text-2xl font-medium text-gray-800">今天</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-medium text-gray-800">今天</h1>
+        <button onClick={onLogout} className="rounded-xl bg-gray-100 px-3 py-2 text-xs font-medium text-gray-700">
+          退出登录
+        </button>
+      </div>
 
       <Link
         to="/add"

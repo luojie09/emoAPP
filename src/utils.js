@@ -50,16 +50,20 @@ function normalizeEntry(rawEntry, index) {
     id: rawEntry?.id ?? `${Date.now()}-${index}`,
     date: rawEntry?.date ?? getTodayKey(),
     time: rawEntry?.time ?? '00:00',
-    note: typeof rawEntry?.note === 'string' ? rawEntry.note : '',
-    image: typeof rawEntry?.image === 'string' ? rawEntry.image : '',
+    note: typeof rawEntry?.note === 'string' ? rawEntry.note : rawEntry?.text ?? '',
+    image: typeof rawEntry?.image === 'string' ? rawEntry.image : rawEntry?.image_url ?? '',
     emotion,
     score: emotion.score,
     mood: emotion.label,
-    isFavorite: Boolean(rawEntry?.isFavorite),
+    isFavorite: Boolean(rawEntry?.isFavorite ?? rawEntry?.is_favorite),
   }
 }
 
-export function readEntries() {
+export function readEntries(sourceEntries) {
+  if (Array.isArray(sourceEntries)) {
+    return sourceEntries.map((entry, index) => normalizeEntry(entry, index))
+  }
+
   const raw = localStorage.getItem(STORAGE_KEY)
   if (!raw) return []
 

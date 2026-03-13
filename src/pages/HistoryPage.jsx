@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { formatDayLabel, readEntries, writeEntries } from '../utils'
+import { formatDayLabel } from '../utils'
 
 const scoreBorderTone = {
   5: 'border-orange-400',
@@ -10,7 +10,7 @@ const scoreBorderTone = {
   1: 'border-blue-400',
 }
 
-export default function HistoryPage({ historyDays, onToast }) {
+export default function HistoryPage({ historyDays, entries, onToast, onImportEntries, onLogout }) {
   const importInputRef = useRef(null)
   const [viewMode, setViewMode] = useState('all')
 
@@ -33,8 +33,7 @@ export default function HistoryPage({ historyDays, onToast }) {
   }, [historyDays, viewMode])
 
   const handleExport = () => {
-    const data = readEntries()
-    const content = JSON.stringify(data, null, 2)
+    const content = JSON.stringify(entries, null, 2)
     const blob = new Blob([content], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -57,10 +56,7 @@ export default function HistoryPage({ historyDays, onToast }) {
       const content = await file.text()
       const parsed = JSON.parse(content)
       if (!Array.isArray(parsed)) throw new Error('invalid-format')
-
-      writeEntries(parsed)
-      onToast('数据导入成功！')
-      window.setTimeout(() => window.location.reload(), 1500)
+      await onImportEntries(parsed)
     } catch {
       onToast('导入失败，请确认文件格式正确')
     } finally {
@@ -70,7 +66,12 @@ export default function HistoryPage({ historyDays, onToast }) {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-medium text-gray-800">历史</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-medium text-gray-800">历史</h1>
+        <button onClick={onLogout} className="rounded-xl bg-gray-100 px-3 py-2 text-xs font-medium text-gray-700">
+          退出登录
+        </button>
+      </div>
 
       <div className="flex gap-2 rounded-2xl bg-white p-2 shadow-sm">
         <button
