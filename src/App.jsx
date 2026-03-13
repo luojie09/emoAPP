@@ -156,7 +156,7 @@ export default function App() {
       text: entry.note,
       image_url: entry.image,
       is_favorite: entry.isFavorite,
-      created_at: `${entry.date}T${entry.time}:00`,
+      created_at: new Date(`${entry.date}T${entry.time}:00`).toISOString(),
     }))
 
     const { error } = await supabase.from('entries').insert(rows)
