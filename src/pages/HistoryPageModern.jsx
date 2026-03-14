@@ -35,13 +35,9 @@ function getTrendIcon(trend) {
 export default function HistoryPageModern({
   historyDays,
   entries,
-  onToast,
-  onImportEntries,
-  onLogout,
   onToggleFavorite,
   onDeleteEntry,
 }) {
-  const importInputRef = useRef(null)
   const longPressTimerRef = useRef(null)
   const [activeTab, setActiveTab] = useState('all')
   const [selectedImage, setSelectedImage] = useState(null)
@@ -96,38 +92,6 @@ export default function HistoryPageModern({
     [entries],
   )
 
-  const handleExport = () => {
-    const content = JSON.stringify(entries, null, 2)
-    const blob = new Blob([content], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'emo_backup.json'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-    onToast?.('导出成功')
-  }
-
-  const handlePickImportFile = () => importInputRef.current?.click()
-
-  const handleImport = async (event) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    try {
-      const content = await file.text()
-      const parsed = JSON.parse(content)
-      if (!Array.isArray(parsed)) throw new Error('invalid-format')
-      await onImportEntries?.(parsed)
-    } catch {
-      onToast?.('导入失败，请确认文件格式正确')
-    } finally {
-      event.target.value = ''
-    }
-  }
-
   const clearLongPress = () => {
     if (!longPressTimerRef.current) return
     window.clearTimeout(longPressTimerRef.current)
@@ -146,14 +110,9 @@ export default function HistoryPageModern({
   return (
     <div className="min-h-screen bg-[#f2f2f7]">
       <div className="bg-gradient-to-b from-white to-[#f2f2f7] px-6 pt-4 pb-5">
-        <div className="flex items-center justify-between">
-          <h1 className="text-[34px] font-bold tracking-tight bg-gradient-to-r from-[#1d1d1f] to-[#86868b] bg-clip-text text-transparent">
-            历史
-          </h1>
-          <button onClick={onLogout} className="rounded-xl bg-gray-100 px-3 py-2 text-xs font-medium text-gray-700">
-            退出登录
-          </button>
-        </div>
+        <h1 className="text-[34px] font-bold tracking-tight bg-gradient-to-r from-[#1d1d1f] to-[#86868b] bg-clip-text text-transparent">
+          历史
+        </h1>
       </div>
 
       <div className="px-4 pt-3 pb-5 bg-gradient-to-b from-white/50 to-transparent">
@@ -269,7 +228,7 @@ export default function HistoryPageModern({
                           <span className="text-[15px] text-[#8e8e93]">{`${entry.date} ${entry.time}`}</span>
                         </div>
                         {entry.note ? (
-                          <p className="text-[15px] text-[#3c3c43] leading-snug line-clamp-2">{entry.note}</p>
+                          <p className="text-[15px] text-[#3c3c43] leading-snug whitespace-pre-wrap">{entry.note}</p>
                         ) : null}
 
                         {entry.image ? (
@@ -313,22 +272,6 @@ export default function HistoryPageModern({
           )}
         </div>
       )}
-
-      {activeTab === 'all' ? (
-        <div className="px-4 pb-10">
-          <div className="rounded-2xl bg-white p-4 shadow-sm">
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <button onClick={handleExport} className="w-full rounded-xl bg-gray-100 px-4 py-3 text-sm font-medium text-gray-700">
-                导出数据
-              </button>
-              <button onClick={handlePickImportFile} className="w-full rounded-xl bg-gray-100 px-4 py-3 text-sm font-medium text-gray-700">
-                导入数据
-              </button>
-            </div>
-            <input ref={importInputRef} type="file" accept=".json" onChange={handleImport} className="hidden" />
-          </div>
-        </div>
-      ) : null}
 
       {selectedImage && <ImageModal imageUrl={selectedImage} onClose={() => setSelectedImage(null)} />}
 

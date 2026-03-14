@@ -1,46 +1,125 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import MoodChart from '../components/MoodChart'
+import { Star } from 'lucide-react'
 import ImageModal from '../components/ImageModal'
-import RecordCard from '../components/RecordCardInteractive'
 import TopBar from '../components/TopBar'
 import { formatDayLabel } from '../utils'
 
+const moodColors = {
+  5: '#34C759',
+  4: '#5AC8FA',
+  3: '#FFCC00',
+  2: '#FF9500',
+  1: '#FF3B30',
+}
+
 export default function DayDetailPage({ entries, onToggleFavorite, onDeleteEntry }) {
   const { date } = useParams()
-  const [selectedImage, setSelectedImage] = useState('')
+  const [selectedImage, setSelectedImage] = useState(null)
+  const longPressTimerRef = useRef(null)
 
-  const dayRecords = useMemo(() => entries.filter((entry) => entry.date === date), [entries, date])
-  const chartRecords = useMemo(() => [...dayRecords].sort((a, b) => a.time.localeCompare(b.time)), [dayRecords])
-  const listRecords = useMemo(() => [...dayRecords].sort((a, b) => b.time.localeCompare(a.time)), [dayRecords])
+  const listRecords = useMemo(
+    () =>
+      (entries ?? [])
+        .filter((entry) => entry.date === date)
+        .sort((a, b) => b.time.localeCompare(a.time)),
+    [entries, date],
+  )
+
+  const clearLongPress = () => {
+    if (!longPressTimerRef.current) return
+    window.clearTimeout(longPressTimerRef.current)
+    longPressTimerRef.current = null
+  }
+
+  const startLongPress = (entryId) => {
+    clearLongPress()
+    longPressTimerRef.current = window.setTimeout(async () => {
+      const confirmed = window.confirm('确定要彻底删除这条记录吗？')
+      if (!confirmed) return
+      await onDeleteEntry?.(entryId)
+    }, 600)
+  }
 
   return (
     <div className="space-y-4 pt-3">
       <TopBar title={formatDayLabel(date ?? '')} />
 
       {listRecords.length ? (
-        <>
-          <MoodChart data={chartRecords} />
-          <h2 className="text-xl font-medium text-gray-800">这一天的记录</h2>
-          <div className="space-y-4">
-            {listRecords.map((record) => (
-              <RecordCard
-                key={record.id}
-                record={record}
-                onToggleFavorite={onToggleFavorite}
-                onImageClick={setSelectedImage}
-                onDelete={onDeleteEntry}
-              />
-            ))}
-          </div>
-        </>
-      ) : (
-        <div className="rounded-2xl bg-white p-4 text-center shadow-sm">
-          <p className="text-base text-gray-700">这一天没有记录</p>
-          <p className="mt-1 text-sm text-gray-400">请返回历史列表选择其他日期。</p>
+        <div className="space-y-3">
+          {listRecords.map((entry) => {
+            const moodScore = Number(entry?.emotion?.score ?? entry?.score ?? 3)
+            const moodColor = moodColors[moodScore] ?? '#8E8E93'
+
+            return (
+              <div
+                key={entry.id}
+                className="bg-white rounded-[20px] shadow-sm"
+                onTouchStart={() => startLongPress(entry.id)}
+                onMouseDown={() => startLongPress(entry.id)}
+                onTouchEnd={clearLongPress}
+                onMouseUp={clearLongPress}
+                onMouseLeave={clearLongPress}
+                onTouchMove={clearLongPress}
+              >
+                <div className="px-4 py-4 flex items-start gap-3">
+                  <div
+                    className="w-12 h-12 rounded-full flex items-center justify-center text-2xl flex-shrink-0"
+                    style={{ backgroundColor: `${moodColor}20` }}
+                  >
+                    {entry?.emotion?.emoji ?? '🙂'}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-[17px] font-semibold">{entry?.emotion?.label ?? entry?.mood ?? '心情'}</span>
+                      <span className="text-[15px] text-[#8e8e93]">{entry.time}</span>
+                    </div>
+                    {entry.note ? (
+                      <p className="text-[15px] text-[#3c3c43] leading-snug whitespace-pre-wrap">{entry.note}</p>
+                    ) : null}
+
+                    {entry.image ? (
+                      <img
+                        src={entry.image}
+                        alt="心情图片"
+                        className="mt-3 h-20 w-20 rounded-xl object-cover cursor-pointer"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          setSelectedImage(entry.image)
+                        }}
+                        onMouseDown={(event) => event.stopPropagation()}
+                        onTouchStart={(event) => event.stopPropagation()}
+                      />
+                    ) : null}
+                  </div>
+
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onToggleFavorite?.(entry.id)
+                    }}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onTouchStart={(event) => event.stopPropagation()}
+                    className="flex-shrink-0 ml-2 p-2 -mr-2"
+                  >
+                    <Star
+                      size={20}
+                      fill={entry.isFavorite ? '#FFCC00' : 'none'}
+                      stroke={entry.isFavorite ? '#FFCC00' : '#C7C7CC'}
+                      strokeWidth={2}
+                    />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
         </div>
+      ) : (
+        <div className="bg-white rounded-[20px] shadow-sm p-6 text-center text-[#8e8e93]">这一天没有记录</div>
       )}
-      <ImageModal imageUrl={selectedImage} onClose={() => setSelectedImage('')} />
+
+      {selectedImage && <ImageModal imageUrl={selectedImage} onClose={() => setSelectedImage(null)} />}
     </div>
   )
 }

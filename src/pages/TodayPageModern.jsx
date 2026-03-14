@@ -154,7 +154,7 @@ export default function TodayPageModern({ entries, onToggleFavorite, onLogout, o
                         <span className="text-[15px] text-[#8e8e93]">{entry.time}</span>
                       </div>
                       {entry.note ? (
-                        <p className="text-[15px] text-[#3c3c43] leading-snug line-clamp-2">{entry.note}</p>
+                        <p className="text-[15px] text-[#3c3c43] leading-snug whitespace-pre-wrap">{entry.note}</p>
                       ) : null}
 
                       {entry.image ? (
