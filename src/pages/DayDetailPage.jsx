@@ -6,7 +6,7 @@ import RecordCard from '../components/RecordCardInteractive'
 import TopBar from '../components/TopBar'
 import { formatDayLabel } from '../utils'
 
-export default function DayDetailPage({ entries, onToggleFavorite }) {
+export default function DayDetailPage({ entries, onToggleFavorite, onDeleteEntry }) {
   const { date } = useParams()
   const [selectedImage, setSelectedImage] = useState('')
 
@@ -29,6 +29,7 @@ export default function DayDetailPage({ entries, onToggleFavorite }) {
                 record={record}
                 onToggleFavorite={onToggleFavorite}
                 onImageClick={setSelectedImage}
+                onDelete={onDeleteEntry}
               />
             ))}
           </div>

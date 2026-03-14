@@ -142,6 +142,19 @@ export default function App() {
     setEntries((prev) => prev.map((entry) => (entry.id === entryId ? { ...entry, isFavorite: nextFavorite } : entry)))
   }
 
+  const handleDeleteEntry = async (entryId) => {
+    const { error } = await supabase.from('entries').delete().eq('id', entryId)
+
+    if (error) {
+      showToast('删除失败，请稍后重试')
+      return false
+    }
+
+    setEntries((prev) => prev.filter((entry) => entry.id !== entryId))
+    showToast('删除成功')
+    return true
+  }
+
   const handleImportEntries = async (importedEntries) => {
     if (!session?.user) return
 
@@ -196,7 +209,17 @@ export default function App() {
       {withTabs ? (
         <Layout>
           <Routes>
-            <Route path="/" element={<TodayPage records={todayEntries} onToggleFavorite={handleToggleFavorite} onLogout={handleLogout} />} />
+            <Route
+              path="/"
+              element={
+                <TodayPage
+                  records={todayEntries}
+                  onToggleFavorite={handleToggleFavorite}
+                  onLogout={handleLogout}
+                  onDeleteEntry={handleDeleteEntry}
+                />
+              }
+            />
             <Route
               path="/history"
               element={
@@ -207,6 +230,7 @@ export default function App() {
                   onImportEntries={handleImportEntries}
                   onLogout={handleLogout}
                   onToggleFavorite={handleToggleFavorite}
+                  onDeleteEntry={handleDeleteEntry}
                 />
               }
             />
@@ -219,7 +243,7 @@ export default function App() {
             <Route path="/add" element={<AddEntryPage onSave={handleAddEntry} onToast={showToast} />} />
             <Route
               path="/history/:date"
-              element={<DayDetailPage entries={entries} onToggleFavorite={handleToggleFavorite} />}
+              element={<DayDetailPage entries={entries} onToggleFavorite={handleToggleFavorite} onDeleteEntry={handleDeleteEntry} />}
             />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

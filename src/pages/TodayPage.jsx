@@ -12,7 +12,7 @@ const scoreGlowTone = {
   1: 'bg-gradient-to-b from-blue-50 to-slate-50',
 }
 
-export default function TodayPage({ records, onToggleFavorite, onLogout }) {
+export default function TodayPage({ records, onToggleFavorite, onLogout, onDeleteEntry }) {
   const [selectedImage, setSelectedImage] = useState('')
   const chartRecords = useMemo(() => [...records].sort((a, b) => a.time.localeCompare(b.time)), [records])
   const listRecords = useMemo(() => [...records].sort((a, b) => b.time.localeCompare(a.time)), [records])
@@ -49,6 +49,7 @@ export default function TodayPage({ records, onToggleFavorite, onLogout }) {
                 record={record}
                 onToggleFavorite={onToggleFavorite}
                 onImageClick={setSelectedImage}
+                onDelete={onDeleteEntry}
               />
             ))}
           </div>

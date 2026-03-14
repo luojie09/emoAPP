@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import ImageModal from '../components/ImageModal'
 import RecordCard from '../components/RecordCardInteractive'
 import { formatDayLabel } from '../utils'
 
@@ -11,9 +12,10 @@ const scoreBorderTone = {
   1: 'border-blue-400',
 }
 
-export default function HistoryPage({ historyDays, entries, onToast, onImportEntries, onLogout, onToggleFavorite }) {
+export default function HistoryPage({ historyDays, entries, onToast, onImportEntries, onLogout, onToggleFavorite, onDeleteEntry }) {
   const importInputRef = useRef(null)
   const [viewMode, setViewMode] = useState('all')
+  const [selectedImage, setSelectedImage] = useState(null)
   const favoriteEntries = useMemo(
     () =>
       entries
@@ -84,6 +86,8 @@ export default function HistoryPage({ historyDays, entries, onToast, onImportEnt
                 key={entry.id}
                 record={{ ...entry, time: `${entry.date} ${entry.time}` }}
                 onToggleFavorite={onToggleFavorite}
+                onImageClick={setSelectedImage}
+                onDelete={onDeleteEntry}
               />
             ))}
           </div>
@@ -93,7 +97,7 @@ export default function HistoryPage({ historyDays, entries, onToast, onImportEnt
           </div>
         )}
 
-        <div className="rounded-2xl bg-white p-4 shadow-sm">
+        <div className="hidden rounded-2xl bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row">
             <button
               onClick={handleExport}
@@ -110,6 +114,7 @@ export default function HistoryPage({ historyDays, entries, onToast, onImportEnt
           </div>
           <input ref={importInputRef} type="file" accept=".json" onChange={handleImport} className="hidden" />
         </div>
+        {selectedImage && <ImageModal imageUrl={selectedImage} onClose={() => setSelectedImage(null)} />}
       </div>
     )
   }
@@ -169,7 +174,8 @@ export default function HistoryPage({ historyDays, entries, onToast, onImportEnt
         </div>
       )}
 
-      <div className="rounded-2xl bg-white p-4 shadow-sm">
+      {viewMode === 'all' ? (
+        <div className="rounded-2xl bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row">
           <button
             onClick={handleExport}
@@ -185,7 +191,8 @@ export default function HistoryPage({ historyDays, entries, onToast, onImportEnt
           </button>
         </div>
         <input ref={importInputRef} type="file" accept=".json" onChange={handleImport} className="hidden" />
-      </div>
+        </div>
+      ) : null}
     </div>
   )
 }
