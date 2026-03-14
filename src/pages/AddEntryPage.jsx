@@ -1,12 +1,25 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import EmojiPicker, { Categories } from 'emoji-picker-react'
 import TopBar from '../components/TopBar'
 import { getTodayKey } from '../utils'
 
 const MAX_IMAGE_EDGE = 800
 const JPEG_QUALITY = 0.6
 const MAX_UPLOAD_SIZE = 5 * 1024 * 1024
+const PURE_EMOJIS = [
+  '😀', '😃', '😄', '😁', '😆', '😊', '🙂',
+  '😉', '😌', '😍', '🥰', '😘', '😙', '😚',
+  '😋', '😜', '🤪', '🤩', '🥳', '😎', '🤗',
+  '😏', '😶', '😐', '😑', '🙄', '😴', '😪',
+  '😷', '🤒', '🤕', '😵', '🥴', '😕', '😟',
+  '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺',
+  '😢', '😭', '😤', '😠', '😡', '🤯', '😬',
+  '😱', '😰', '😥', '😓', '🫠', '🫥', '😮‍💨',
+  '😺', '😸', '😹', '😻', '😼', '😽', '🙀',
+  '😿', '😾', '❤️', '🩷', '💛', '💚', '💙',
+  '💜', '🖤', '🤍', '🤎', '💔', '💕', '💞',
+  '💓', '💗', '💖', '💘', '💝', '💟', '❣️',
+]
 
 function toDateTimeLocalValue(date) {
   const pad = (v) => String(v).padStart(2, '0')
@@ -116,9 +129,9 @@ export default function AddEntryPage({ onSave, onToast }) {
     }
   }
 
-  const handleEmojiClick = (emojiData) => {
+  const handleEmojiClick = (emoji) => {
     setEmotion((prev) => ({
-      emoji: emojiData.emoji,
+      emoji,
       label: prev?.label || '自定义心情',
       score: prev?.score || 3,
     }))
@@ -145,15 +158,19 @@ export default function AddEntryPage({ onSave, onToast }) {
           </button>
 
           {isPickerOpen ? (
-            <div className="absolute left-0 top-[calc(100%+8px)] z-20 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl">
-              <EmojiPicker
-                onEmojiClick={handleEmojiClick}
-                lazyLoadEmojis
-                categories={[{ name: '心情', category: Categories.SMILEYS_PEOPLE }]}
-                searchDisabled={true}
-                skinTonesDisabled={true}
-                previewConfig={{ showPreview: false }}
-              />
+            <div className="absolute left-0 top-[calc(100%+8px)] z-20 w-full">
+              <div className="grid grid-cols-7 gap-2 p-3 bg-white rounded-xl shadow-sm border border-gray-100 max-h-64 overflow-y-auto">
+                {PURE_EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => handleEmojiClick(emoji)}
+                    className="text-2xl hover:scale-125 transition-transform duration-200 focus:outline-none"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : null}
         </div>
