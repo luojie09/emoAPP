@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { formatDayLabel } from '../utils'
+import { formatDayLabel, groupEntriesByDay } from '../utils'
 
 const scoreBorderTone = {
   5: 'border-orange-400',
@@ -13,24 +13,18 @@ const scoreBorderTone = {
 export default function HistoryPage({ historyDays, entries, onToast, onImportEntries, onLogout }) {
   const importInputRef = useRef(null)
   const [viewMode, setViewMode] = useState('all')
+  const favoriteEntries = useMemo(
+    () =>
+      [...entries]
+        .filter((entry) => entry.isFavorite === true)
+        .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)),
+    [entries],
+  )
 
   const visibleDays = useMemo(() => {
     if (viewMode === 'all') return historyDays
-
-    return historyDays
-      .map((day) => {
-        const favoriteRecords = day.records.filter((record) => record.isFavorite)
-        if (!favoriteRecords.length) return null
-        const avg = favoriteRecords.reduce((sum, item) => sum + item.score, 0) / favoriteRecords.length
-        return {
-          ...day,
-          count: favoriteRecords.length,
-          avg: Number(avg.toFixed(1)),
-          records: favoriteRecords,
-        }
-      })
-      .filter(Boolean)
-  }, [historyDays, viewMode])
+    return groupEntriesByDay(favoriteEntries)
+  }, [historyDays, viewMode, favoriteEntries])
 
   const handleExport = () => {
     const content = JSON.stringify(entries, null, 2)

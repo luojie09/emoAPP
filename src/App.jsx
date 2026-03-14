@@ -105,7 +105,7 @@ export default function App() {
   const handleAddEntry = async (entry) => {
     if (!session?.user) throw new Error('not-authenticated')
 
-    const dateTimeIso = `${entry.date}T${entry.time}:00`
+    const dateTimeIso = new Date(`${entry.date}T${entry.time}:00`).toISOString()
     const { data, error } = await supabase
       .from('entries')
       .insert({
