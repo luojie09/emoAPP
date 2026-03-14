@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function AuthPage({ onAuth }) {
+export default function AuthPage({ onAuth, onGuestLogin }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
@@ -43,6 +43,19 @@ export default function AuthPage({ onAuth }) {
           className="w-full rounded-xl bg-gray-100 py-3 text-sm font-medium text-gray-700"
         >
           {isSignUp ? '已有账号？去登录' : '没有账号？去注册'}
+        </button>
+        <div className="flex items-center gap-3 py-1">
+          <div className="h-px flex-1 bg-gray-200" />
+          <span className="text-xs text-gray-400">或</span>
+          <div className="h-px flex-1 bg-gray-200" />
+        </div>
+
+        <button
+          type="button"
+          onClick={onGuestLogin}
+          className="w-full rounded-xl border border-gray-200 bg-white py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          免登录，游客体验
         </button>
       </form>
     </div>

@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Star } from 'lucide-react'
-import { Area, AreaChart, ResponsiveContainer } from 'recharts'
+import { Area, AreaChart, ResponsiveContainer, YAxis } from 'recharts'
 import ImageModal from '../components/ImageModal'
 
 const moodColors = {
@@ -87,8 +87,9 @@ export default function TodayPageModern({ entries, onToggleFavorite, onLogout, o
             </div>
           </div>
 
-          <ResponsiveContainer width="100%" height={80}>
+          <ResponsiveContainer width="100%" height={150}>
             <AreaChart data={emotionData} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
+              <YAxis domain={[1, 5]} hide />
               <defs>
                 <linearGradient id="colorMoodToday" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#007AFF" stopOpacity={0.3} />

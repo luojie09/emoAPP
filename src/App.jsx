@@ -27,12 +27,31 @@ function rowToEntry(row) {
   }
 }
 
+const GUEST_ENTRIES_KEY = 'guest_entries'
+
+function readGuestEntries() {
+  const raw = localStorage.getItem(GUEST_ENTRIES_KEY)
+  if (!raw) return []
+
+  try {
+    const parsed = JSON.parse(raw)
+    return readEntries(Array.isArray(parsed) ? parsed : [])
+  } catch {
+    return []
+  }
+}
+
+function writeGuestEntries(entries) {
+  localStorage.setItem(GUEST_ENTRIES_KEY, JSON.stringify(entries))
+}
+
 export default function App() {
   const location = useLocation()
   const navigate = useNavigate()
   const [entries, setEntries] = useState([])
   const [toastMessage, setToastMessage] = useState('')
   const [session, setSession] = useState(null)
+  const [isGuest, setIsGuest] = useState(false)
 
   const showToast = (message, duration = 1800) => {
     setToastMessage(message)
@@ -54,6 +73,11 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    if (isGuest) {
+      setEntries(readGuestEntries())
+      return
+    }
+
     if (!session) {
       setEntries([])
       return
@@ -74,7 +98,7 @@ export default function App() {
     }
 
     loadEntries()
-  }, [session])
+  }, [session, isGuest])
 
   // 🚑 这里是彻底修复后的注册/登录逻辑！
   const handleAuth = async ({ email, password, isSignUp }) => {
@@ -93,16 +117,45 @@ export default function App() {
     }
 
     showToast(isSignUp ? '注册成功！' : '登录成功！');
+    setIsGuest(false)
     navigate('/');
   }
 
+  const handleGuestLogin = () => {
+    setIsGuest(true)
+    setEntries(readGuestEntries())
+    navigate('/')
+  }
+
   const handleLogout = async () => {
+    if (isGuest) {
+      setIsGuest(false)
+      setEntries([])
+      showToast('已退出游客模式')
+      navigate('/auth')
+      return
+    }
+
     await supabase.auth.signOut()
     showToast('已退出登录')
     navigate('/auth')
   }
 
   const handleAddEntry = async (entry) => {
+    if (isGuest) {
+      const guestEntry = {
+        ...entry,
+        id: `guest-${Date.now()}`,
+      }
+
+      setEntries((prev) => {
+        const next = [...prev, guestEntry]
+        writeGuestEntries(next)
+        return next
+      })
+      return
+    }
+
     if (!session?.user) throw new Error('not-authenticated')
 
     const dateTimeIso = new Date(`${entry.date}T${entry.time}:00`).toISOString()
@@ -132,6 +185,16 @@ export default function App() {
     if (!target) return
 
     const nextFavorite = !target.isFavorite
+
+    if (isGuest) {
+      setEntries((prev) => {
+        const next = prev.map((entry) => (entry.id === entryId ? { ...entry, isFavorite: nextFavorite } : entry))
+        writeGuestEntries(next)
+        return next
+      })
+      return
+    }
+
     const { error } = await supabase.from('entries').update({ is_favorite: nextFavorite }).eq('id', entryId)
 
     if (error) {
@@ -143,6 +206,16 @@ export default function App() {
   }
 
   const handleDeleteEntry = async (entryId) => {
+    if (isGuest) {
+      setEntries((prev) => {
+        const next = prev.filter((entry) => entry.id !== entryId)
+        writeGuestEntries(next)
+        return next
+      })
+      showToast('删除成功')
+      return true
+    }
+
     const { error } = await supabase.from('entries').delete().eq('id', entryId)
 
     if (error) {
@@ -156,6 +229,25 @@ export default function App() {
   }
 
   const handleImportEntries = async (importedEntries) => {
+    if (isGuest) {
+      const normalized = readEntries(importedEntries)
+      if (!normalized.length) return
+
+      const base = Date.now()
+      const guestRows = normalized.map((entry, index) => ({
+        ...entry,
+        id: `guest-${base + index}`,
+      }))
+
+      setEntries((prev) => {
+        const next = [...prev, ...guestRows]
+        writeGuestEntries(next)
+        return next
+      })
+      showToast('导入成功')
+      return
+    }
+
     if (!session?.user) return
 
     const normalized = readEntries(importedEntries)
@@ -185,12 +277,12 @@ export default function App() {
   const historyDays = useMemo(() => groupEntriesByDay(entries), [entries])
   const withTabs = !location.pathname.startsWith('/add') && !location.pathname.startsWith('/history/')
 
-  if (!session) {
+  if (!session && !isGuest) {
     return (
       <>
         <Toast message={toastMessage} />
         <Routes>
-          <Route path="/auth" element={<AuthPage onAuth={handleAuth} />} />
+          <Route path="/auth" element={<AuthPage onAuth={handleAuth} onGuestLogin={handleGuestLogin} />} />
           <Route path="*" element={<Navigate to="/auth" replace />} />
         </Routes>
       </>
