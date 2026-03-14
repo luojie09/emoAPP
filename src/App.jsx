@@ -199,7 +199,16 @@ export default function App() {
             <Route path="/" element={<TodayPage records={todayEntries} onToggleFavorite={handleToggleFavorite} onLogout={handleLogout} />} />
             <Route
               path="/history"
-              element={<HistoryPage historyDays={historyDays} entries={entries} onToast={showToast} onImportEntries={handleImportEntries} onLogout={handleLogout} />}
+              element={
+                <HistoryPage
+                  historyDays={historyDays}
+                  entries={entries}
+                  onToast={showToast}
+                  onImportEntries={handleImportEntries}
+                  onLogout={handleLogout}
+                  onToggleFavorite={handleToggleFavorite}
+                />
+              }
             />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

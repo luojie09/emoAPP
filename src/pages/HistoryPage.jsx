@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { formatDayLabel, groupEntriesByDay } from '../utils'
+import RecordCard from '../components/RecordCardInteractive'
+import { formatDayLabel } from '../utils'
 
 const scoreBorderTone = {
   5: 'border-orange-400',
@@ -10,21 +11,20 @@ const scoreBorderTone = {
   1: 'border-blue-400',
 }
 
-export default function HistoryPage({ historyDays, entries, onToast, onImportEntries, onLogout }) {
+export default function HistoryPage({ historyDays, entries, onToast, onImportEntries, onLogout, onToggleFavorite }) {
   const importInputRef = useRef(null)
   const [viewMode, setViewMode] = useState('all')
   const favoriteEntries = useMemo(
     () =>
-      [...entries]
-        .filter((entry) => entry.isFavorite === true)
-        .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)),
+      entries
+        .filter((entry) => entry.isFavorite)
+        .sort((a, b) => new Date(`${b.date}T${b.time}`) - new Date(`${a.date}T${a.time}`)),
     [entries],
   )
 
   const visibleDays = useMemo(() => {
-    if (viewMode === 'all') return historyDays
-    return groupEntriesByDay(favoriteEntries)
-  }, [historyDays, viewMode, favoriteEntries])
+    return historyDays
+  }, [historyDays])
 
   const handleExport = () => {
     const content = JSON.stringify(entries, null, 2)
@@ -56,6 +56,62 @@ export default function HistoryPage({ historyDays, entries, onToast, onImportEnt
     } finally {
       event.target.value = ''
     }
+  }
+
+  if (viewMode === 'favorites') {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-medium text-gray-800">历史</h1>
+          <button onClick={onLogout} className="rounded-xl bg-gray-100 px-3 py-2 text-xs font-medium text-gray-700">
+            退出登录
+          </button>
+        </div>
+
+        <div className="flex gap-2 rounded-2xl bg-white p-2 shadow-sm">
+          <button onClick={() => setViewMode('all')} className="flex-1 rounded-xl py-2 text-sm text-gray-400">
+            全部记录
+          </button>
+          <button onClick={() => setViewMode('favorites')} className="flex-1 rounded-xl bg-gray-100 py-2 text-sm text-gray-700">
+            ⭐ 我的收藏
+          </button>
+        </div>
+
+        {favoriteEntries.length ? (
+          <div className="space-y-4">
+            {favoriteEntries.map((entry) => (
+              <RecordCard
+                key={entry.id}
+                record={{ ...entry, time: `${entry.date} ${entry.time}` }}
+                onToggleFavorite={onToggleFavorite}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-white p-4 text-center shadow-sm">
+            <p className="text-base text-gray-700">暂无收藏的记录</p>
+          </div>
+        )}
+
+        <div className="rounded-2xl bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button
+              onClick={handleExport}
+              className="w-full rounded-xl bg-gray-100 px-4 py-3 text-sm font-medium text-gray-700"
+            >
+              导出数据
+            </button>
+            <button
+              onClick={handlePickImportFile}
+              className="w-full rounded-xl bg-gray-100 px-4 py-3 text-sm font-medium text-gray-700"
+            >
+              导入数据
+            </button>
+          </div>
+          <input ref={importInputRef} type="file" accept=".json" onChange={handleImport} className="hidden" />
+        </div>
+      </div>
+    )
   }
 
   return (
