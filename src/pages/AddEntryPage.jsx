@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import EmojiPicker from 'emoji-picker-react'
+import EmojiPicker, { Categories } from 'emoji-picker-react'
 import TopBar from '../components/TopBar'
 import { getTodayKey } from '../utils'
 
@@ -146,7 +146,14 @@ export default function AddEntryPage({ onSave, onToast }) {
 
           {isPickerOpen ? (
             <div className="absolute left-0 top-[calc(100%+8px)] z-20 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl">
-              <EmojiPicker onEmojiClick={handleEmojiClick} lazyLoadEmojis />
+              <EmojiPicker
+                onEmojiClick={handleEmojiClick}
+                lazyLoadEmojis
+                categories={[{ name: '心情', category: Categories.SMILEYS_PEOPLE }]}
+                searchDisabled={true}
+                skinTonesDisabled={true}
+                previewConfig={{ showPreview: false }}
+              />
             </div>
           ) : null}
         </div>
