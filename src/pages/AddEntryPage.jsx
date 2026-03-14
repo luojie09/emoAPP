@@ -21,6 +21,14 @@ const PURE_EMOJIS = [
   '💓', '💗', '💖', '💘', '💝', '💟', '❣️',
 ]
 
+const EMOJI_LIST = [
+  { emoji: '🤩', score: 5, label: '惊喜' }, { emoji: '😍', score: 5, label: '热爱' }, { emoji: '🥰', score: 5, label: '喜爱' }, { emoji: '😆', score: 5, label: '大笑' }, { emoji: '😂', score: 5, label: '笑哭' }, { emoji: '🥳', score: 5, label: '庆祝' }, { emoji: '😁', score: 5, label: '欢笑' }, { emoji: '😀', score: 5, label: '开心' }, { emoji: '😻', score: 5, label: '花痴猫' }, { emoji: '😸', score: 5, label: '开心猫' },
+  { emoji: '😊', score: 4, label: '微笑' }, { emoji: '😋', score: 4, label: '调皮' }, { emoji: '😎', score: 4, label: '得意' }, { emoji: '😜', score: 4, label: '鬼脸' }, { emoji: '🙂', score: 4, label: '浅笑' }, { emoji: '😉', score: 4, label: '眨眼' }, { emoji: '😌', score: 4, label: '欣慰' }, { emoji: '☺️', score: 4, label: '愉悦' }, { emoji: '😺', score: 4, label: '微笑猫' }, { emoji: '😽', score: 4, label: '亲亲猫' },
+  { emoji: '😐', score: 3, label: '无语' }, { emoji: '😑', score: 3, label: '面无表情' }, { emoji: '😶', score: 3, label: '沉默' }, { emoji: '🤔', score: 3, label: '思考' }, { emoji: '🤨', score: 3, label: '挑眉' }, { emoji: '🙄', score: 3, label: '白眼' }, { emoji: '🥱', score: 3, label: '打哈欠' }, { emoji: '😬', score: 3, label: '尴尬' }, { emoji: '🙃', score: 3, label: '倒脸' }, { emoji: '😼', score: 3, label: '冷笑猫' },
+  { emoji: '😔', score: 2, label: '沮丧' }, { emoji: '😕', score: 2, label: '困惑' }, { emoji: '😟', score: 2, label: '担忧' }, { emoji: '😢', score: 2, label: '流泪' }, { emoji: '😥', score: 2, label: '失望' }, { emoji: '😰', score: 2, label: '焦虑' }, { emoji: '🤒', score: 2, label: '生病' }, { emoji: '🥺', score: 2, label: '委屈' }, { emoji: '🙀', score: 2, label: '惊吓猫' }, { emoji: '😿', score: 2, label: '哭泣猫' },
+  { emoji: '😭', score: 1, label: '大哭' }, { emoji: '😡', score: 1, label: '愤怒' }, { emoji: '🤬', score: 1, label: '咒骂' }, { emoji: '🤯', score: 1, label: '爆炸' }, { emoji: '😱', score: 1, label: '惊恐' }, { emoji: '🤢', score: 1, label: '恶心' }, { emoji: '🤮', score: 1, label: '呕吐' }, { emoji: '😫', score: 1, label: '疲惫' }, { emoji: '😩', score: 1, label: '崩溃' }, { emoji: '😾', score: 1, label: '生气猫' },
+]
+
 function toDateTimeLocalValue(date) {
   const pad = (v) => String(v).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
@@ -129,12 +137,12 @@ export default function AddEntryPage({ onSave, onToast }) {
     }
   }
 
-  const handleEmojiClick = (emoji) => {
-    setEmotion((prev) => ({
-      emoji,
-      label: prev?.label || '自定义心情',
-      score: prev?.score || 3,
-    }))
+  const handleEmojiClick = (item) => {
+    setEmotion({
+      emoji: item.emoji,
+      label: item.label,
+      score: item.score,
+    })
     setIsPickerOpen(false)
   }
 
@@ -159,15 +167,17 @@ export default function AddEntryPage({ onSave, onToast }) {
 
           {isPickerOpen ? (
             <div className="absolute left-0 top-[calc(100%+8px)] z-20 w-full">
+              <p className="mb-2 px-1 text-xs text-gray-400">按情绪强烈程度从上到下排列</p>
               <div className="grid grid-cols-7 gap-2 p-3 bg-white rounded-xl shadow-sm border border-gray-100 max-h-64 overflow-y-auto">
-                {PURE_EMOJIS.map((emoji) => (
+                {EMOJI_LIST.map((item, index) => (
                   <button
-                    key={emoji}
+                    key={`${item.emoji}-${index}`}
                     type="button"
-                    onClick={() => handleEmojiClick(emoji)}
+                    onClick={() => handleEmojiClick(item)}
+                    title={item.label}
                     className="text-2xl hover:scale-125 transition-transform duration-200 focus:outline-none"
                   >
-                    {emoji}
+                    {item.emoji}
                   </button>
                 ))}
               </div>
