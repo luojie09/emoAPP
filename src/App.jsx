@@ -6,7 +6,7 @@ import AddEntryPage from './pages/AddEntryPage'
 import AuthPage from './pages/AuthPage'
 import DayDetailPage from './pages/DayDetailPage'
 import HistoryPage from './pages/HistoryPage'
-import TodayPage from './pages/TodayPage'
+import TodayPage from './pages/TodayPageModern'
 import { groupEntriesByDay, readEntries } from './utils'
 import { supabase } from './supabaseClient'
 
@@ -182,12 +182,6 @@ export default function App() {
     window.setTimeout(() => window.location.reload(), 1500)
   }
 
-  const todayKey = useMemo(() => new Date().toISOString().slice(0, 10), [])
-  const todayEntries = useMemo(
-    () => entries.filter((entry) => entry.date === todayKey).sort((a, b) => b.time.localeCompare(a.time)),
-    [entries, todayKey],
-  )
-
   const historyDays = useMemo(() => groupEntriesByDay(entries), [entries])
   const withTabs = !location.pathname.startsWith('/add') && !location.pathname.startsWith('/history/')
 
@@ -213,7 +207,7 @@ export default function App() {
               path="/"
               element={
                 <TodayPage
-                  records={todayEntries}
+                  entries={entries}
                   onToggleFavorite={handleToggleFavorite}
                   onLogout={handleLogout}
                   onDeleteEntry={handleDeleteEntry}
