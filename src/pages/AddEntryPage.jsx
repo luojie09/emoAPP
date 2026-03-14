@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import EmojiPicker from 'emoji-picker-react'
 import TopBar from '../components/TopBar'
-import { EMOTIONS } from '../data'
 import { getTodayKey } from '../utils'
 
 const MAX_IMAGE_EDGE = 800
@@ -51,6 +51,7 @@ export default function AddEntryPage({ onSave, onToast }) {
   const navigate = useNavigate()
   const imageInputRef = useRef(null)
   const [emotion, setEmotion] = useState(null)
+  const [isPickerOpen, setIsPickerOpen] = useState(false)
   const [note, setNote] = useState('')
   const [image, setImage] = useState('')
   const [selectedDateTime, setSelectedDateTime] = useState(() => toDateTimeLocalValue(new Date()))
@@ -115,27 +116,39 @@ export default function AddEntryPage({ onSave, onToast }) {
     }
   }
 
+  const handleEmojiClick = (emojiData) => {
+    setEmotion((prev) => ({
+      emoji: emojiData.emoji,
+      label: prev?.label || '自定义心情',
+      score: prev?.score || 3,
+    }))
+    setIsPickerOpen(false)
+  }
+
   return (
     <div className="space-y-4 pt-3">
       <TopBar title="记录现在的心情" />
       <p className="text-base text-gray-700">此刻你的感觉怎么样?</p>
 
       <div className="rounded-2xl bg-white p-4 shadow-sm">
-        <div className="grid grid-cols-3 gap-3">
-          {EMOTIONS.map((option) => {
-            const isSelected = emotion?.emoji === option.emoji && emotion?.label === option.label
-            return (
-              <button
-                key={`${option.emoji}-${option.label}`}
-                onClick={() => setEmotion(option)}
-                className={`flex h-20 flex-col items-center justify-center rounded-xl border py-2 transition-all duration-200 active:scale-95 hover:scale-105 hover:shadow-md ${
-                  isSelected ? 'border-indigo-200 bg-indigo-50' : 'border-gray-100 bg-white'
-                }`}
-              >
-                <span className="text-3xl leading-none">{option.emoji}</span>
-              </button>
-            )
-          })}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setIsPickerOpen((prev) => !prev)}
+            className="flex w-full items-center justify-between rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-left text-sm text-gray-700 transition hover:bg-gray-100"
+          >
+            <span className="inline-flex items-center gap-2">
+              <span className="text-xl">{emotion?.emoji || '😀'}</span>
+              <span>{emotion?.emoji ? '已选择心情，点击可更换' : '😀 点击选择心情'}</span>
+            </span>
+            <span className="text-gray-400">{isPickerOpen ? '收起' : '展开'}</span>
+          </button>
+
+          {isPickerOpen ? (
+            <div className="absolute left-0 top-[calc(100%+8px)] z-20 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl">
+              <EmojiPicker onEmojiClick={handleEmojiClick} lazyLoadEmojis />
+            </div>
+          ) : null}
         </div>
       </div>
 
