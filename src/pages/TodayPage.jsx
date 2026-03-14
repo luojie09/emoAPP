@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import MoodChart from '../components/MoodChart'
-import RecordCard from '../components/RecordCard'
+import ImageModal from '../components/ImageModal'
+import RecordCard from '../components/RecordCardInteractive'
 
 const scoreGlowTone = {
   5: 'bg-gradient-to-b from-orange-50 to-slate-50',
@@ -12,6 +13,7 @@ const scoreGlowTone = {
 }
 
 export default function TodayPage({ records, onToggleFavorite, onLogout }) {
+  const [selectedImage, setSelectedImage] = useState('')
   const chartRecords = useMemo(() => [...records].sort((a, b) => a.time.localeCompare(b.time)), [records])
   const listRecords = useMemo(() => [...records].sort((a, b) => b.time.localeCompare(a.time)), [records])
   const latestRecord = listRecords[0]
@@ -42,7 +44,12 @@ export default function TodayPage({ records, onToggleFavorite, onLogout }) {
 
           <div className="space-y-4">
             {listRecords.map((record) => (
-              <RecordCard key={record.id} record={record} onToggleFavorite={onToggleFavorite} />
+              <RecordCard
+                key={record.id}
+                record={record}
+                onToggleFavorite={onToggleFavorite}
+                onImageClick={setSelectedImage}
+              />
             ))}
           </div>
         </>
@@ -52,6 +59,7 @@ export default function TodayPage({ records, onToggleFavorite, onLogout }) {
           <p className="mt-1 text-sm text-gray-400">点击上方按钮，记录第一条心情吧。</p>
         </div>
       )}
+      <ImageModal imageUrl={selectedImage} onClose={() => setSelectedImage('')} />
     </div>
   )
 }

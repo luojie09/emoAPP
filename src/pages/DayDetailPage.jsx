@@ -1,12 +1,14 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import MoodChart from '../components/MoodChart'
-import RecordCard from '../components/RecordCard'
+import ImageModal from '../components/ImageModal'
+import RecordCard from '../components/RecordCardInteractive'
 import TopBar from '../components/TopBar'
 import { formatDayLabel } from '../utils'
 
 export default function DayDetailPage({ entries, onToggleFavorite }) {
   const { date } = useParams()
+  const [selectedImage, setSelectedImage] = useState('')
 
   const dayRecords = useMemo(() => entries.filter((entry) => entry.date === date), [entries, date])
   const chartRecords = useMemo(() => [...dayRecords].sort((a, b) => a.time.localeCompare(b.time)), [dayRecords])
@@ -22,7 +24,12 @@ export default function DayDetailPage({ entries, onToggleFavorite }) {
           <h2 className="text-xl font-medium text-gray-800">这一天的记录</h2>
           <div className="space-y-4">
             {listRecords.map((record) => (
-              <RecordCard key={record.id} record={record} onToggleFavorite={onToggleFavorite} />
+              <RecordCard
+                key={record.id}
+                record={record}
+                onToggleFavorite={onToggleFavorite}
+                onImageClick={setSelectedImage}
+              />
             ))}
           </div>
         </>
@@ -32,6 +39,7 @@ export default function DayDetailPage({ entries, onToggleFavorite }) {
           <p className="mt-1 text-sm text-gray-400">请返回历史列表选择其他日期。</p>
         </div>
       )}
+      <ImageModal imageUrl={selectedImage} onClose={() => setSelectedImage('')} />
     </div>
   )
 }
