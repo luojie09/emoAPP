@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { Star } from 'lucide-react'
 import ImageModal from '../components/ImageModal'
 import TopBar from '../components/TopBar'
-import { formatDayLabel } from '../utils'
+import { formatDayLabel, getEntryLocalDateKey } from '../utils'
 
 const moodColors = {
   5: '#34C759',
@@ -21,7 +21,7 @@ export default function DayDetailPage({ entries, onToggleFavorite, onDeleteEntry
   const listRecords = useMemo(
     () =>
       (entries ?? [])
-        .filter((entry) => entry.date === date)
+        .filter((entry) => getEntryLocalDateKey(entry) === date)
         .sort((a, b) => b.time.localeCompare(a.time)),
     [entries, date],
   )

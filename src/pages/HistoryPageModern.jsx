@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Calendar, ChevronRight, Star, TrendingUp } from 'lucide-react'
 import ImageModal from '../components/ImageModal'
-import { formatDayLabel } from '../utils'
+import { formatLocalMonthDay, getEntryLocalDateKey } from '../utils'
 
 const moodColors = {
   5: '#34C759',
@@ -44,9 +44,10 @@ export default function HistoryPageModern({
 
   const historyData = useMemo(() => {
     const grouped = (entries ?? []).reduce((acc, entry) => {
-      const bucket = acc[entry.date] ?? []
-      bucket.push(entry)
-      acc[entry.date] = bucket
+      const dateKey = getEntryLocalDateKey(entry)
+      const bucket = acc[dateKey] ?? []
+      bucket.push({ ...entry, date: dateKey })
+      acc[dateKey] = bucket
       return acc
     }, {})
 
@@ -176,7 +177,7 @@ export default function HistoryPageModern({
 
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[20px] font-semibold tracking-tight">{formatDayLabel(record.date)}</span>
+                          <span className="text-[20px] font-semibold tracking-tight">{formatLocalMonthDay(record.date)}</span>
                           {getTrendIcon(record.trend)}
                         </div>
                         <div className="flex items-center gap-3 text-[14px] text-[#8e8e93]">

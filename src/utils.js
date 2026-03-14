@@ -11,7 +11,45 @@ export const moodScale = {
 }
 
 export function getTodayKey() {
-  return new Date().toISOString().slice(0, 10)
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+export function getLocalDateTimeParts(date = new Date()) {
+  return {
+    localDate: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
+    localTime: `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`,
+  }
+}
+
+export function getEntryLocalDateKey(entry) {
+  const hasDate = typeof entry?.date === 'string' && entry.date.length >= 10
+  const hasTime = typeof entry?.time === 'string' && entry.time.length >= 5
+
+  if (hasDate) {
+    const fallbackTime = hasTime ? entry.time : '00:00'
+    const candidate = new Date(`${entry.date}T${fallbackTime}:00`)
+    if (!Number.isNaN(candidate.getTime())) {
+      return getLocalDateTimeParts(candidate).localDate
+    }
+    return entry.date
+  }
+
+  const rawCreatedAt = entry?.created_at ?? entry?.createdAt
+  if (rawCreatedAt) {
+    const createdAtDate = new Date(rawCreatedAt)
+    if (!Number.isNaN(createdAtDate.getTime())) {
+      return getLocalDateTimeParts(createdAtDate).localDate
+    }
+  }
+
+  return getTodayKey()
+}
+
+export function formatLocalMonthDay(dateKey) {
+  const date = new Date(`${dateKey}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return formatDayLabel(dateKey)
+  return date.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
 }
 
 export function formatDayLabel(dateKey) {
@@ -46,10 +84,15 @@ function normalizeEmotion(rawEntry) {
 
 function normalizeEntry(rawEntry, index) {
   const emotion = normalizeEmotion(rawEntry)
+  const rawCreatedAt = rawEntry?.created_at ?? rawEntry?.createdAt
+  const createdAtDate = rawCreatedAt ? new Date(rawCreatedAt) : null
+  const hasValidCreatedAt = createdAtDate && !Number.isNaN(createdAtDate.getTime())
+  const fallbackDateTime = hasValidCreatedAt ? getLocalDateTimeParts(createdAtDate) : null
+
   return {
     id: rawEntry?.id ?? `${Date.now()}-${index}`,
-    date: rawEntry?.date ?? getTodayKey(),
-    time: rawEntry?.time ?? '00:00',
+    date: rawEntry?.date ?? fallbackDateTime?.localDate ?? getTodayKey(),
+    time: rawEntry?.time ?? fallbackDateTime?.localTime ?? '00:00',
     note: typeof rawEntry?.note === 'string' ? rawEntry.note : rawEntry?.text ?? '',
     image: typeof rawEntry?.image === 'string' ? rawEntry.image : rawEntry?.image_url ?? '',
     emotion,
@@ -82,9 +125,10 @@ export function writeEntries(entries) {
 
 export function groupEntriesByDay(entries) {
   const grouped = entries.reduce((acc, entry) => {
-    const bucket = acc[entry.date] ?? []
-    bucket.push(entry)
-    acc[entry.date] = bucket
+    const dateKey = getEntryLocalDateKey(entry)
+    const bucket = acc[dateKey] ?? []
+    bucket.push({ ...entry, date: dateKey })
+    acc[dateKey] = bucket
     return acc
   }, {})
 

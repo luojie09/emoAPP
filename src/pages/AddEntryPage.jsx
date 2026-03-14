@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import TopBar from '../components/TopBar'
-import { getTodayKey } from '../utils'
+import { getTodayKey, getLocalDateTimeParts } from '../utils'
 
 const MAX_IMAGE_EDGE = 800
 const JPEG_QUALITY = 0.6
@@ -103,13 +103,12 @@ export default function AddEntryPage({ onSave, onToast }) {
 
     const selected = selectedDateTime ? new Date(selectedDateTime) : new Date()
     const validDate = Number.isNaN(selected.getTime()) ? new Date() : selected
-    const date = validDate.toISOString().slice(0, 10)
-    const time = `${String(validDate.getHours()).padStart(2, '0')}:${String(validDate.getMinutes()).padStart(2, '0')}`
+    const { localDate, localTime } = getLocalDateTimeParts(validDate)
 
     const entry = {
       id: `${Date.now()}`,
-      date: date || getTodayKey(),
-      time,
+      date: localDate || getTodayKey(),
+      time: localTime,
       emotion,
       score: emotion.score,
       mood: emotion.label,

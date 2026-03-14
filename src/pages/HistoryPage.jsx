@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import ImageModal from '../components/ImageModal'
 import RecordCard from '../components/RecordCardInteractive'
-import { formatDayLabel } from '../utils'
+import { formatLocalMonthDay } from '../utils'
 
 const scoreBorderTone = {
   5: 'border-orange-400',
@@ -162,7 +162,7 @@ export default function HistoryPage({ historyDays, entries, onToast, onImportEnt
               >
                 <div>
                   <p className="text-base font-medium text-gray-800">
-                    {formatDayLabel(day.date)}
+                    {formatLocalMonthDay(day.date)}
                     <span className="ml-2 text-sm font-normal text-gray-400">{day.count} 条记录</span>
                   </p>
                   <p className="mt-1 text-sm text-gray-700">平均情绪：{day.avg}</p>
