@@ -1,6 +1,7 @@
 ﻿import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import AppLayout from './components/AppLayout'
+import SetupProfileModal from './components/SetupProfileModal'
 import Toast from './components/Toast'
 import AddEntryPage from './pages/AddEntryPageV2'
 import AuthPage from './pages/AuthPage'
@@ -33,8 +34,66 @@ function rowToEntry(row) {
 const GUEST_ENTRIES_KEY = 'guest_entries'
 const PENDING_AI_TASKS_KEY = 'pending_ai_tasks'
 const AI_FEEDBACK_OVERRIDES_KEY = 'ai_feedback_overrides'
+const GUEST_PROFILE_KEY = 'guest_profile'
+const USER_PROFILE_CACHE_PREFIX = 'user_profile_'
 const AI_REQUEST_TIMEOUT_MS = 45000
 const MIN_AI_FEEDBACK_CHARS = 60
+
+function getUserProfileCacheKey(userId) {
+  return `${USER_PROFILE_CACHE_PREFIX}${String(userId ?? '')}`
+}
+
+function readGuestProfile() {
+  const raw = localStorage.getItem(GUEST_PROFILE_KEY)
+  if (!raw) return { nickname: '', avatar: '' }
+
+  try {
+    const parsed = JSON.parse(raw)
+    return {
+      nickname: typeof parsed?.nickname === 'string' ? parsed.nickname.trim() : '',
+      avatar: typeof parsed?.avatar === 'string' ? parsed.avatar : '',
+    }
+  } catch {
+    return { nickname: '', avatar: '' }
+  }
+}
+
+function writeGuestProfile(profile) {
+  localStorage.setItem(
+    GUEST_PROFILE_KEY,
+    JSON.stringify({
+      nickname: typeof profile?.nickname === 'string' ? profile.nickname.trim() : '',
+      avatar: typeof profile?.avatar === 'string' ? profile.avatar : '',
+    }),
+  )
+}
+
+function readUserProfileCache(userId) {
+  if (!userId) return { nickname: '', avatar: '' }
+  const raw = localStorage.getItem(getUserProfileCacheKey(userId))
+  if (!raw) return { nickname: '', avatar: '' }
+
+  try {
+    const parsed = JSON.parse(raw)
+    return {
+      nickname: typeof parsed?.nickname === 'string' ? parsed.nickname.trim() : '',
+      avatar: typeof parsed?.avatar === 'string' ? parsed.avatar : '',
+    }
+  } catch {
+    return { nickname: '', avatar: '' }
+  }
+}
+
+function writeUserProfileCache(userId, profile) {
+  if (!userId) return
+  localStorage.setItem(
+    getUserProfileCacheKey(userId),
+    JSON.stringify({
+      nickname: typeof profile?.nickname === 'string' ? profile.nickname.trim() : '',
+      avatar: typeof profile?.avatar === 'string' ? profile.avatar : '',
+    }),
+  )
+}
 
 function isAiFeedbackTooLongError(error) {
   const raw = `${error?.message ?? ''} ${error?.details ?? ''} ${error?.hint ?? ''} ${error?.code ?? ''}`.toLowerCase()
@@ -178,22 +237,23 @@ function extractAiText(payload) {
   return normalized || null
 }
 
-async function requestAiFeedback({ score, emotionLabel, text }) {
-  const lengthInstruction =
-    score >= 4
-      ? '字数控制在 150 到 200 字左右，简短轻快。'
-      : '字数控制在 300 到 500 字左右，给予充足的心理抚慰和深度共情。'
+async function requestAiFeedback({ score, emotionLabel, text, userNickname }) {
+  const currentNickname = userNickname || '朋友'
+  const systemPrompt = `你是一个名为“时光树洞”的专属情绪陪伴者。你的任务是阅读用户的日记，并给予一封温暖、极具共情力且富有智慧的回信。
 
-  const systemPrompt = `你是一个名为“时光树洞”的专属情绪陪伴者。你的任务是阅读用户的日记，并给予温暖、极具共情力的回音。
 【核心规则】
-1. 紧扣细节：必须在回复中自然提取或呼应用户日记里的具体细节，让用户确信你认真阅读了。
-2. 情感同频：
-   - 面对高分（4-5分）：做快乐放大器，肯定他们的小确幸。
-   - 面对平淡（3分）：做安静的陪伴者，认可日常的平静。
-   - 面对低分（1-2分）：做情绪的安全网。接纳情绪，不要说教，给予语言上的拥抱和深度开导。
-3. 语气与口吻：像一个极其懂他的老朋友，温柔、真诚、克制。
-4. 信件格式：请用一封短笺的方式来写，第一句固定写“亲爱的原子：”，后文自然延续，不要重复称呼。
-5. 格式与篇幅：${lengthInstruction} 务必适当分段（每段不要太长），保持排版的呼吸感。结尾可以自然地带一个温暖的 emoji（如 ?, ??, ?, ??）。`
+1. 润物无声的呼应（极其重要）：绝对不要像做阅读理解一样大段复述、总结或引用用户的原话！请用“默契老友”的视角，极其轻巧、自然地提及日记里的细节。营造出“心领神会”的默契感，拒绝做内容摘要。
+2. 情感同频与承接：
+   - 面对高分（4-5分）：做快乐的放大器，陪他们一起庆祝生活中的小确幸，分享这份明媚。
+   - 面对平淡（3分）：做安静的倾听者，认可日常的平静也是一种难得的力量。
+   - 面对低分（1-2分）：做绝对安全的情绪底座。接纳负能量，不喊“一切都会好起来”的空洞口号。
+3. 叙事疗法与哲理升华（点睛之笔）：
+   - 拒绝干巴巴的大道理。在合适的时候，请以“分享”的姿态，自然地引入一句恰当的中外古诗词、文学大家的名言；或者讲述一个简短、有内涵的中外传说与寓言故事来作为隐喻。
+   - 引用必须极其贴切自然，绝不能生搬硬套或显得幼稚。要通过优美的意象或故事去启发用户，让他们自己找到内心的平静。
+4. 语气与口吻：使用第一人称（我）与第二人称（你）对话。语言要像散文诗一样温柔、真诚、克制，带有淡淡的治愈感。如果需要给出建议，必须是“启发式”和“探讨式”的，绝对不能居高临下或带有“爹味”。
+5. 格式与篇幅：字数严格控制在 300 到 500 字之间（根据情绪深度自行把控）。
+【信件格式强制要求】：你的回信第一行必须严格以“亲爱的${currentNickname}：”开头，单独成行！然后再另起一行开始正文。
+绝对不要使用任何列表（如 1. 2. 3.）或小标题。务必适当分段（每段 2-3 句话即可），保持排版的高度呼吸感。结尾自然地带一个温暖的 emoji（如 ✨, 🫂, ☕, 🍃, 🦋）。`
 
   const userPrompt = `【今日心情】：${score}分\n【情绪标签】：${emotionLabel || '无'}\n【日记正文】：${text}`
   const body = {
@@ -242,6 +302,9 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState('')
   const [session, setSession] = useState(null)
   const [isGuest, setIsGuest] = useState(false)
+  const [userProfile, setUserProfile] = useState({ nickname: '', avatar: '' })
+  const [isProfileLoading, setIsProfileLoading] = useState(true)
+  const [isProfileSetupRequired, setIsProfileSetupRequired] = useState(false)
   const [currentTab, setCurrentTab] = useState(() => getTabFromPath(location.pathname))
 
   const showToast = (message, duration = 1800) => {
@@ -266,6 +329,74 @@ export default function App() {
   useEffect(() => {
     setCurrentTab(getTabFromPath(location.pathname))
   }, [location.pathname])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadProfile = async () => {
+      if (isGuest) {
+        const guestProfile = readGuestProfile()
+        if (!cancelled) {
+          setUserProfile(guestProfile)
+          setIsProfileSetupRequired(false)
+          setIsProfileLoading(false)
+        }
+        return
+      }
+
+      if (!session?.user) {
+        if (!cancelled) {
+          setUserProfile({ nickname: '', avatar: '' })
+          setIsProfileSetupRequired(false)
+          setIsProfileLoading(false)
+        }
+        return
+      }
+
+      if (!cancelled) setIsProfileLoading(true)
+
+      const userId = session.user.id
+      const metadata = session.user.user_metadata ?? {}
+      let nickname = typeof metadata.nickname === 'string' ? metadata.nickname.trim() : ''
+      let avatar = typeof metadata.avatar_url === 'string' ? metadata.avatar_url : ''
+
+      if (!nickname) {
+        try {
+          const { data } = await supabase
+            .from('profiles')
+            .select('nickname,avatar_url')
+            .eq('id', userId)
+            .maybeSingle()
+          if (data) {
+            nickname = typeof data.nickname === 'string' ? data.nickname.trim() : nickname
+            avatar = typeof data.avatar_url === 'string' ? data.avatar_url : avatar
+          }
+        } catch {
+          // If profiles table is not available, continue with metadata/cache.
+        }
+      }
+
+      const cached = readUserProfileCache(userId)
+      if (!nickname && cached.nickname) nickname = cached.nickname
+      if (!avatar && cached.avatar) avatar = cached.avatar
+
+      if (nickname) {
+        writeUserProfileCache(userId, { nickname, avatar })
+      }
+
+      if (!cancelled) {
+        setUserProfile({ nickname, avatar })
+        setIsProfileSetupRequired(!nickname)
+        setIsProfileLoading(false)
+      }
+    }
+
+    void loadProfile()
+
+    return () => {
+      cancelled = true
+    }
+  }, [session, isGuest])
 
   const fetchCloudEntries = async (showSuccessToast = false) => {
     if (!session) return false
@@ -336,13 +467,75 @@ export default function App() {
   const handleGuestLogin = () => {
     setIsGuest(true)
     setEntries(readGuestEntries())
+    setUserProfile(readGuestProfile())
+    setIsProfileSetupRequired(false)
     navigate('/')
   }
 
   const handleGoToLogin = () => {
     setIsGuest(false)
     setEntries([])
+    setUserProfile({ nickname: '', avatar: '' })
+    setIsProfileSetupRequired(false)
     navigate('/auth')
+  }
+
+  const handleSaveUserProfile = async ({ nickname, avatar }) => {
+    const normalizedNickname = String(nickname ?? '').trim()
+    const normalizedAvatar = typeof avatar === 'string' ? avatar : ''
+    if (!normalizedNickname) throw new Error('nickname-required')
+
+    if (isGuest) {
+      const next = { nickname: normalizedNickname, avatar: normalizedAvatar }
+      writeGuestProfile(next)
+      setUserProfile(next)
+      setIsProfileSetupRequired(false)
+      return next
+    }
+
+    if (!session?.user) throw new Error('not-authenticated')
+
+    const userId = session.user.id
+    let hasAnySuccess = false
+    let latestError = null
+
+    const { error: authError } = await supabase.auth.updateUser({
+      data: {
+        nickname: normalizedNickname,
+        avatar_url: normalizedAvatar || null,
+      },
+    })
+    if (authError) {
+      latestError = authError
+    } else {
+      hasAnySuccess = true
+    }
+
+    try {
+      const { error: profileError } = await supabase.from('profiles').upsert({
+        id: userId,
+        nickname: normalizedNickname,
+        avatar_url: normalizedAvatar || null,
+        updated_at: new Date().toISOString(),
+      })
+      if (profileError) {
+        latestError = profileError
+      } else {
+        hasAnySuccess = true
+      }
+    } catch (error) {
+      latestError = error
+    }
+
+    if (!hasAnySuccess && latestError) {
+      throw latestError
+    }
+
+    const next = { nickname: normalizedNickname, avatar: normalizedAvatar }
+    writeUserProfileCache(userId, next)
+    setUserProfile(next)
+    setIsProfileSetupRequired(false)
+    return next
   }
 
   const handleTabChange = (tab) => {
@@ -361,12 +554,16 @@ export default function App() {
     if (isGuest) {
       setIsGuest(false)
       setEntries([])
+      setUserProfile({ nickname: '', avatar: '' })
+      setIsProfileSetupRequired(false)
       showToast('已退出游客模式')
       navigate('/auth')
       return
     }
 
     await supabase.auth.signOut()
+    setUserProfile({ nickname: '', avatar: '' })
+    setIsProfileSetupRequired(false)
     showToast('已退出登录')
     navigate('/auth')
   }
@@ -437,6 +634,7 @@ export default function App() {
         score: Number(score ?? 3),
         emotionLabel,
         text: normalizedText,
+        userNickname: userProfile.nickname,
       })
       if (!generatedText) return false
 
@@ -565,7 +763,7 @@ export default function App() {
     }, 15000)
 
     return () => window.clearInterval(intervalId)
-  }, [session, isGuest])
+  }, [session, isGuest, userProfile.nickname])
 
   const handleToggleFavorite = async (entryId) => {
     const target = entries.find((entry) => entry.id === entryId)
@@ -669,6 +867,14 @@ export default function App() {
     !location.pathname.startsWith('/history/') &&
     !location.pathname.startsWith('/entry/')
 
+  if (session && !isGuest && isProfileLoading) {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-md items-center justify-center bg-slate-50">
+        <div className="text-sm text-gray-500">正在准备你的树洞...</div>
+      </div>
+    )
+  }
+
   if (!session && !isGuest) {
     return (
       <>
@@ -715,9 +921,11 @@ export default function App() {
                 <ProfilePage
                   session={session}
                   isGuest={isGuest}
+                  userProfile={userProfile}
                   entries={entries}
                   onLogout={handleLogout}
                   onLogin={handleGoToLogin}
+                  onSaveProfile={handleSaveUserProfile}
                   onImportEntries={handleImportEntries}
                   onToast={showToast}
                   onSync={handleManualSync}
@@ -756,6 +964,18 @@ export default function App() {
           </Routes>
         </div>
       )}
+
+      <SetupProfileModal
+        isOpen={Boolean(session && !isGuest && isProfileSetupRequired)}
+        forceSetup
+        initialNickname={userProfile.nickname}
+        initialAvatar={userProfile.avatar}
+        onSave={async (profile) => {
+          await handleSaveUserProfile(profile)
+          showToast('资料已保存')
+        }}
+        onError={() => showToast('保存资料失败，请稍后重试')}
+      />
     </>
   )
 }

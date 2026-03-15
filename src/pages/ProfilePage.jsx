@@ -1,5 +1,6 @@
-import { useRef } from 'react'
-import { User, Upload, Download, RefreshCw, Info, Trash2, ChevronRight, LogOut } from 'lucide-react'
+﻿import { useRef, useState } from 'react'
+import { User, Upload, Download, RefreshCw, Info, Trash2, ChevronRight, LogOut, Pencil } from 'lucide-react'
+import SetupProfileModal from '../components/SetupProfileModal'
 
 function downloadEntriesAsJson(entries) {
   const content = JSON.stringify(entries ?? [], null, 2)
@@ -17,14 +18,17 @@ function downloadEntriesAsJson(entries) {
 export default function ProfilePage({
   session,
   isGuest,
+  userProfile,
   entries,
   onLogout,
   onLogin,
+  onSaveProfile,
   onImportEntries,
   onToast,
   onSync,
 }) {
   const importInputRef = useRef(null)
+  const [isEditingProfile, setIsEditingProfile] = useState(false)
 
   const handlePickImportFile = () => importInputRef.current?.click()
 
@@ -61,21 +65,48 @@ export default function ProfilePage({
     await onLogout?.()
   }
 
-  const title = isGuest ? '游客模式' : session?.user?.email ?? '已登录用户'
+  const handleSaveProfile = async (profile) => {
+    await onSaveProfile?.(profile)
+    onToast?.('资料更新成功')
+    setIsEditingProfile(false)
+  }
+
+  const displayName =
+    (typeof userProfile?.nickname === 'string' && userProfile.nickname.trim()) ||
+    (isGuest ? '游客模式' : session?.user?.email || '树洞朋友')
   const subtitle = isGuest ? '数据仅保存在本机，建议登录同步' : '已开启云端安全同步'
 
   return (
     <>
       <div className="px-4 pt-4 pb-4">
         <div className="bg-white rounded-[20px] shadow-[0_2px_10px_rgba(0,0,0,0.02)] px-5 py-4 flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center flex-shrink-0">
-            <User size={28} className="text-[#007AFF]" strokeWidth={2} />
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsEditingProfile(true)}
+            className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center flex-shrink-0 overflow-hidden"
+          >
+            {userProfile?.avatar ? (
+              <img src={userProfile.avatar} alt="头像" className="h-full w-full object-cover" />
+            ) : (
+              <User size={28} className="text-[#007AFF]" strokeWidth={2} />
+            )}
+          </button>
 
           <div className="flex-1 min-w-0">
-            <div className="text-[20px] font-semibold text-black mb-0.5 truncate">{title}</div>
-            <div className="text-[13px] text-[#8e8e93] leading-snug">{subtitle}</div>
+            <button type="button" onClick={() => setIsEditingProfile(true)} className="text-left w-full">
+              <div className="text-[20px] font-semibold text-black mb-0.5 truncate">{displayName}</div>
+              <div className="text-[13px] text-[#8e8e93] leading-snug">{subtitle}</div>
+            </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setIsEditingProfile(true)}
+            className="inline-flex items-center gap-1 rounded-full border border-[#D9D9DE] px-3 py-1.5 text-xs font-semibold text-[#3c3c43]"
+          >
+            <Pencil size={13} />
+            编辑资料
+          </button>
 
           {isGuest ? (
             <button
@@ -164,6 +195,19 @@ export default function ProfilePage({
       </div>
 
       <input ref={importInputRef} type="file" accept=".json" onChange={handleImport} className="hidden" />
+
+      <SetupProfileModal
+        isOpen={isEditingProfile}
+        forceSetup={false}
+        title="编辑我的资料"
+        submitLabel="保存资料"
+        initialNickname={userProfile?.nickname ?? ''}
+        initialAvatar={userProfile?.avatar ?? ''}
+        onSave={handleSaveProfile}
+        onClose={() => setIsEditingProfile(false)}
+        onError={() => onToast?.('资料保存失败，请稍后重试')}
+      />
     </>
   )
 }
+
