@@ -5,8 +5,8 @@ import exifr from 'exifr'
 import TopBar from '../components/TopBar'
 import { getTodayKey, getLocalDateTimeParts } from '../utils'
 
-const MAX_IMAGE_EDGE = 800
-const JPEG_QUALITY = 0.6
+const MAX_IMAGE_EDGE = 2048
+const JPEG_QUALITY = 0.9
 const MAX_UPLOAD_SIZE = 5 * 1024 * 1024
 const PURE_EMOJIS = [
   '😀', '😃', '😄', '😁', '😆', '😊', '🙂',
