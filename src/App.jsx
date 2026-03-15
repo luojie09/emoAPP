@@ -4,7 +4,7 @@ import AppLayout from './components/AppLayout'
 import Toast from './components/Toast'
 import AddEntryPage from './pages/AddEntryPage'
 import AuthPage from './pages/AuthPage'
-import DayDetailPage from './pages/DayDetailPage'
+import EntryDetailPage from './pages/EntryDetailPage'
 import HistoryPage from './pages/HistoryPageModern'
 import ProfilePage from './pages/ProfilePage'
 import TodayPage from './pages/TodayPageModern'
@@ -25,6 +25,7 @@ function rowToEntry(row) {
     note: row.text ?? '',
     image: row.image_url ?? '',
     isFavorite: Boolean(row.is_favorite),
+    ai_feedback: row.ai_feedback ?? '',
   }
 }
 
@@ -89,7 +90,7 @@ export default function App() {
 
     const { data, error } = await supabase
       .from('entries')
-      .select('id,user_id,emoji,label,score,text,image_url,is_favorite,created_at')
+      .select('id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback')
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -116,7 +117,7 @@ export default function App() {
     const loadEntries = async () => {
       const { data, error } = await supabase
         .from('entries')
-        .select('id,user_id,emoji,label,score,text,image_url,is_favorite,created_at')
+        .select('id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback')
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -219,7 +220,7 @@ export default function App() {
         is_favorite: entry.isFavorite,
         created_at: dateTimeIso,
       })
-      .select('id,user_id,emoji,label,score,text,image_url,is_favorite,created_at')
+      .select('id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback')
       .single()
 
     if (error) throw error
@@ -309,6 +310,7 @@ export default function App() {
       text: entry.note,
       image_url: entry.image,
       is_favorite: entry.isFavorite,
+      ai_feedback: entry.ai_feedback ?? '',
       created_at: new Date(`${entry.date}T${entry.time}:00`).toISOString(),
     }))
 
@@ -323,7 +325,10 @@ export default function App() {
   }
 
   const historyDays = useMemo(() => groupEntriesByDay(entries), [entries])
-  const withTabs = !location.pathname.startsWith('/add') && !location.pathname.startsWith('/history/')
+  const withTabs =
+    !location.pathname.startsWith('/add') &&
+    !location.pathname.startsWith('/history/') &&
+    !location.pathname.startsWith('/entry/')
 
   if (!session && !isGuest) {
     return (
@@ -387,10 +392,7 @@ export default function App() {
         <div className="mx-auto min-h-screen max-w-md bg-slate-50 px-4 pb-10 pt-5">
           <Routes>
             <Route path="/add" element={<AddEntryPage onSave={handleAddEntry} onToast={showToast} />} />
-            <Route
-              path="/history/:date"
-              element={<DayDetailPage entries={entries} onToggleFavorite={handleToggleFavorite} onDeleteEntry={handleDeleteEntry} />}
-            />
+            <Route path="/entry/:id" element={<EntryDetailPage entries={entries} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

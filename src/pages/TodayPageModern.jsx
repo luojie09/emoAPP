@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Star } from 'lucide-react'
+import { Plus, Sparkles, Star } from 'lucide-react'
 import { Area, AreaChart, ResponsiveContainer, YAxis } from 'recharts'
 import ImageModal from '../components/ImageModal'
 
@@ -22,6 +22,7 @@ export default function TodayPageModern({ entries, onToggleFavorite, onLogout, o
   const navigate = useNavigate()
   const [selectedImage, setSelectedImage] = useState(null)
   const longPressTimerRef = useRef(null)
+  const longPressTriggeredRef = useRef(false)
 
   const todayKey = useMemo(() => getTodayKey(), [])
   const todayRecords = useMemo(
@@ -59,11 +60,21 @@ export default function TodayPageModern({ entries, onToggleFavorite, onLogout, o
 
   const startLongPress = (entryId) => {
     clearLongPress()
+    longPressTriggeredRef.current = false
     longPressTimerRef.current = window.setTimeout(async () => {
+      longPressTriggeredRef.current = true
       const confirmed = window.confirm('确定要彻底删除这条记录吗？')
       if (!confirmed) return
       await onDeleteEntry?.(entryId)
     }, 600)
+  }
+
+  const handleCardClick = (entryId) => {
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false
+      return
+    }
+    navigate(`/entry/${entryId}`)
   }
 
   return (
@@ -134,6 +145,7 @@ export default function TodayPageModern({ entries, onToggleFavorite, onLogout, o
                 <div
                   key={entry.id}
                   className="bg-white rounded-[20px] shadow-sm"
+                  onClick={() => handleCardClick(entry.id)}
                   onTouchStart={() => startLongPress(entry.id)}
                   onMouseDown={() => startLongPress(entry.id)}
                   onTouchEnd={clearLongPress}
@@ -153,6 +165,7 @@ export default function TodayPageModern({ entries, onToggleFavorite, onLogout, o
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="text-[17px] font-semibold">{entry?.emotion?.label ?? entry?.mood ?? '心情'}</span>
                         <span className="text-[15px] text-[#8e8e93]">{entry.time}</span>
+                        {entry?.ai_feedback ? <Sparkles size={14} className="text-[#FF9500]" /> : null}
                       </div>
                       {entry.note ? (
                         <p className="text-[15px] text-[#3c3c43] leading-snug whitespace-pre-wrap">{entry.note}</p>

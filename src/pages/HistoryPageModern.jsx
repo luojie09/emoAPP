@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Calendar, ChevronRight, Star, TrendingUp } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Calendar, ChevronRight, Sparkles, Star, TrendingUp } from 'lucide-react'
 import ImageModal from '../components/ImageModal'
 import { formatLocalMonthDay, getEntryLocalDateKey } from '../utils'
 
@@ -38,7 +38,9 @@ export default function HistoryPageModern({
   onToggleFavorite,
   onDeleteEntry,
 }) {
+  const navigate = useNavigate()
   const longPressTimerRef = useRef(null)
+  const longPressTriggeredRef = useRef(false)
   const [activeTab, setActiveTab] = useState('all')
   const [selectedImage, setSelectedImage] = useState(null)
 
@@ -74,6 +76,7 @@ export default function HistoryPageModern({
         count: records.length,
         average: Number(average.toFixed(1)),
         trend,
+        latestEntryId: records[0]?.id ?? null,
       }
     })
   }, [entries, historyDays])
@@ -101,11 +104,21 @@ export default function HistoryPageModern({
 
   const startLongPress = (entryId) => {
     clearLongPress()
+    longPressTriggeredRef.current = false
     longPressTimerRef.current = window.setTimeout(async () => {
+      longPressTriggeredRef.current = true
       const confirmed = window.confirm('确定要彻底删除这条记录吗？')
       if (!confirmed) return
       await onDeleteEntry?.(entryId)
     }, 600)
+  }
+
+  const handleCardClick = (entryId) => {
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false
+      return
+    }
+    navigate(`/entry/${entryId}`)
   }
 
   return (
@@ -168,7 +181,7 @@ export default function HistoryPageModern({
                     className="bg-white rounded-[20px] shadow-sm hover:shadow-md transition-all overflow-hidden"
                     style={{ animation: `slideIn 0.3s ease-out ${index * 0.05}s backwards` }}
                   >
-                    <Link to={`/history/${record.date}`} className="w-full px-5 py-5 flex items-center gap-4 text-left group">
+                    <Link to={record.latestEntryId ? `/entry/${record.latestEntryId}` : '/history'} className="w-full px-5 py-5 flex items-center gap-4 text-left group">
                       <div
                         className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl bg-gradient-to-br ${getMoodColor(record.average)} text-white shadow-lg`}
                       >
@@ -208,6 +221,7 @@ export default function HistoryPageModern({
                   <div
                     key={entry.id}
                     className="bg-white rounded-[20px] shadow-sm"
+                    onClick={() => handleCardClick(entry.id)}
                     onTouchStart={() => startLongPress(entry.id)}
                     onMouseDown={() => startLongPress(entry.id)}
                     onTouchEnd={clearLongPress}
@@ -227,6 +241,7 @@ export default function HistoryPageModern({
                         <div className="flex items-center gap-2 mb-0.5">
                           <span className="text-[17px] font-semibold">{entry?.emotion?.label ?? entry?.mood ?? '心情'}</span>
                           <span className="text-[15px] text-[#8e8e93]">{`${entry.date} ${entry.time}`}</span>
+                          {entry?.ai_feedback ? <Sparkles size={14} className="text-[#FF9500]" /> : null}
                         </div>
                         {entry.note ? (
                           <p className="text-[15px] text-[#3c3c43] leading-snug whitespace-pre-wrap">{entry.note}</p>

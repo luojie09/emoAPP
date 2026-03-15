@@ -95,6 +95,7 @@ function normalizeEntry(rawEntry, index) {
     time: rawEntry?.time ?? fallbackDateTime?.localTime ?? '00:00',
     note: typeof rawEntry?.note === 'string' ? rawEntry.note : rawEntry?.text ?? '',
     image: typeof rawEntry?.image === 'string' ? rawEntry.image : rawEntry?.image_url ?? '',
+    ai_feedback: typeof rawEntry?.ai_feedback === 'string' ? rawEntry.ai_feedback : rawEntry?.aiFeedback ?? '',
     emotion,
     score: emotion.score,
     mood: emotion.label,
