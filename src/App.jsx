@@ -153,13 +153,6 @@ function getTabFromPath(pathname) {
   return 'today'
 }
 
-function cleanEnvValue(value) {
-  return String(value ?? '')
-    .trim()
-    .replace(/^["']|["']$/g, '')
-    .replace(/^\[|\]$/g, '')
-}
-
 function extractAiText(payload) {
   const primary = payload?.content ?? payload?.choices?.[0]?.message?.content
   let normalized = ''
@@ -222,49 +215,20 @@ async function requestAiFeedback({ score, emotionLabel, text }) {
       signal: controller.signal,
     })
 
-    if (proxyResponse.ok) {
-      const json = await proxyResponse.json()
-      const normalized = extractAiText(json)
-      if (normalized) return normalized
-      console.error('AI proxy response was empty:', json)
-    } else {
+    if (!proxyResponse.ok) {
       const errorText = await proxyResponse.text().catch(() => '')
       console.error('AI proxy request failed:', proxyResponse.status, errorText)
-    }
-  } catch (error) {
-    console.error('AI proxy request threw:', error)
-  }
-
-  const baseUrl = cleanEnvValue(import.meta.env.VITE_AI_BASE_URL)
-  const apiKey = cleanEnvValue(import.meta.env.VITE_AI_API_KEY)
-  if (!baseUrl || !apiKey) return null
-
-  try {
-    const endpoint = `${baseUrl.replace(/\/$/, '')}/chat/completions`
-    const directResponse = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    })
-
-    if (!directResponse.ok) {
-      const errorText = await directResponse.text().catch(() => '')
-      console.error('AI direct request failed:', directResponse.status, errorText)
       return null
     }
 
-    const json = await directResponse.json()
+    const json = await proxyResponse.json()
     const normalized = extractAiText(json)
     if (!normalized) {
-      console.error('AI direct response was empty:', json)
+      console.error('AI proxy response was empty:', json)
     }
     return normalized
   } catch (error) {
-    console.error('AI direct request threw:', error)
+    console.error('AI proxy request threw:', error)
     return null
   } finally {
     window.clearTimeout(timer)
