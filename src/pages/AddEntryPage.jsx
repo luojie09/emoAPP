@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react'
+export { default } from './AddEntryPageModern'
+/*
 import { useNavigate } from 'react-router-dom'
 import exifr from 'exifr'
 import TopBar from '../components/TopBar'
@@ -68,6 +69,65 @@ function compressImageToBase64(file) {
     fileReader.readAsDataURL(file)
   })
 }
+*/
+
+function cleanEnvValue(value) {
+  return String(value ?? '')
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .replace(/^\[|\]$/g, '')
+}
+
+async function requestAiFeedback({ score, emotionLabel, text }) {
+  const baseUrl = cleanEnvValue(import.meta.env.VITE_AI_BASE_URL)
+  const apiKey = cleanEnvValue(import.meta.env.VITE_AI_API_KEY)
+  if (!baseUrl || !apiKey) return null
+
+  const systemPrompt = `你是一个名为“时光树洞”的专属情绪陪伴者。你的任务是阅读用户的日记，并给予一段简短、温暖、极具共情力的回音。
+【核心规则】
+1. 紧扣细节（最重要）：必须在回复中自然地提取或呼应用户日记里提到的1-2个具体细节（如某个人、某件事、某个物品），让用户确信你认真阅读了。
+2. 情感同频：
+   - 面对高分（4-5分）：做他们快乐的放大器，肯定他们的成就、小确幸或发现美的眼睛。
+   - 面对平淡（3分）：做安静的陪伴者，认可日常的平静也是一种力量。
+   - 面对低分（1-2分）：做他们情绪的安全网。先接纳情绪，不要急于给出“解决人生大道理”的建议，绝对不要说教。给他们一个语言上的拥抱。
+3. 语气与口吻：像一个极其懂他的老朋友，温柔、真诚、克制。
+4. 格式与篇幅：不要分段，严格控制在 50 到 80 个汉字之间。结尾可以自然地带一个温暖的 emoji（如 ✨, 🫂, ☕, 🎉）。`
+
+  const userPrompt = `【今日心情】：${score}分\n【情绪标签】：${emotionLabel || '无'}\n【日记正文】：${text}`
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userPrompt },
+  ]
+
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), 15000)
+
+  try {
+    const endpoint = `${baseUrl.replace(/\/$/, '')}/chat/completions`
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages,
+      }),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) return null
+    const json = await response.json()
+    const content = json?.choices?.[0]?.message?.content
+    const normalized = typeof content === 'string' ? content.trim() : ''
+    return normalized || null
+  } catch {
+    return null
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
 
 export default function AddEntryPage({ onSave, onToast }) {
   const navigate = useNavigate()
@@ -77,6 +137,7 @@ export default function AddEntryPage({ onSave, onToast }) {
   const [note, setNote] = useState('')
   const [image, setImage] = useState('')
   const [selectedDateTime, setSelectedDateTime] = useState(() => toDateTimeLocalValue(new Date()))
+  const [isSaving, setIsSaving] = useState(false)
 
   const handlePickImage = () => imageInputRef.current?.click()
 
@@ -157,6 +218,63 @@ export default function AddEntryPage({ onSave, onToast }) {
       }
 
       throw error
+    }
+  }
+
+  const handleSaveWithAi = async () => {
+    if (!emotion || isSaving) return
+
+    setIsSaving(true)
+    const text = note.trim()
+
+    try {
+      const selected = selectedDateTime ? new Date(selectedDateTime) : new Date()
+      const validDate = Number.isNaN(selected.getTime()) ? new Date() : selected
+      const { localDate, localTime } = getLocalDateTimeParts(validDate)
+
+      let aiFeedback = null
+      if (text.length > 0) {
+        aiFeedback = await requestAiFeedback({
+          score: emotion.score,
+          emotionLabel: emotion.label,
+          text,
+        })
+      }
+
+      const entry = {
+        id: `${Date.now()}`,
+        date: localDate || getTodayKey(),
+        time: localTime,
+        emotion,
+        score: emotion.score,
+        mood: emotion.label,
+        note: text,
+        image,
+        isFavorite: false,
+        ai_feedback: aiFeedback,
+      }
+
+      await onSave(entry)
+    } catch (error) {
+      const isQuotaError =
+        error?.name === 'QuotaExceededError' ||
+        error?.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+        error?.code === 22 ||
+        error?.code === 1014
+
+      if (isQuotaError) {
+        onToast('瀛樺偍绌洪棿宸叉弧锛岃娓呯悊鎴栦笉甯﹀浘鐗囦繚瀛?)
+      } else {
+        onToast('淇濆瓨澶辫触锛岃绋嶅悗閲嶈瘯')
+      }
+    } finally {
+      setEmotion(null)
+      setNote('')
+      setImage('')
+      setIsPickerOpen(false)
+      setSelectedDateTime(toDateTimeLocalValue(new Date()))
+      setIsSaving(false)
+      navigate('/')
     }
   }
 
@@ -250,10 +368,13 @@ export default function AddEntryPage({ onSave, onToast }) {
       )}
 
       <button
-        onClick={handleSave}
-        disabled={!emotion}
-        className="w-full rounded-xl bg-indigo-500 py-4 text-base font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+        onClick={handleSaveWithAi}
+        disabled={!emotion || isSaving}
+        className={`w-full rounded-xl bg-indigo-500 py-4 text-base font-medium text-white disabled:cursor-not-allowed disabled:opacity-50 ${isSaving ? 'relative text-transparent' : ''}`}
       >
+        {isSaving ? (
+          <span className="absolute inset-0 flex items-center justify-center text-white">🌟 树洞正在思考...</span>
+        ) : null}
         保存这次心情
       </button>
     </div>
