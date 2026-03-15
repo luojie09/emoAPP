@@ -1,27 +1,13 @@
-export { default } from './AddEntryPageV2'
-/*
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import exifr from 'exifr'
 import TopBar from '../components/TopBar'
-import { getTodayKey, getLocalDateTimeParts } from '../utils'
+import { getLocalDateTimeParts, getTodayKey } from '../utils'
 
-const MAX_IMAGE_EDGE = 2048
-const JPEG_QUALITY = 0.9
-const MAX_UPLOAD_SIZE = 5 * 1024 * 1024
-const PURE_EMOJIS = [
-  '😀', '😃', '😄', '😁', '😆', '😊', '🙂',
-  '😉', '😌', '😍', '🥰', '😘', '😙', '😚',
-  '😋', '😜', '🤪', '🤩', '🥳', '😎', '🤗',
-  '😏', '😶', '😐', '😑', '🙄', '😴', '😪',
-  '😷', '🤒', '🤕', '😵', '🥴', '😕', '😟',
-  '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺',
-  '😢', '😭', '😤', '😠', '😡', '🤯', '😬',
-  '😱', '😰', '😥', '😓', '🫠', '🫥', '😮‍💨',
-  '😺', '😸', '😹', '😻', '😼', '😽', '🙀',
-  '😿', '😾', '❤️', '🩷', '💛', '💚', '💙',
-  '💜', '🖤', '🤍', '🤎', '💔', '💕', '💞',
-  '💓', '💗', '💖', '💘', '💝', '💟', '❣️',
-]
+const MAX_IMAGE_EDGE = 1280
+const JPEG_QUALITY = 0.8
+const MAX_UPLOAD_SIZE = 20 * 1024 * 1024
+const MAX_BASE64_BYTES = 2.5 * 1024 * 1024
 
 const EMOJI_LIST = [
   { emoji: '🤩', score: 5, label: '惊喜' }, { emoji: '😍', score: 5, label: '热爱' }, { emoji: '🥰', score: 5, label: '喜爱' }, { emoji: '😆', score: 5, label: '大笑' }, { emoji: '😂', score: 5, label: '笑哭' }, { emoji: '🥳', score: 5, label: '庆祝' }, { emoji: '😁', score: 5, label: '欢笑' }, { emoji: '😀', score: 5, label: '开心' }, { emoji: '😻', score: 5, label: '花痴猫' }, { emoji: '😸', score: 5, label: '开心猫' },
@@ -32,44 +18,9 @@ const EMOJI_LIST = [
 ]
 
 function toDateTimeLocalValue(date) {
-  const pad = (v) => String(v).padStart(2, '0')
+  const pad = (value) => String(value).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
-
-function compressImageToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const fileReader = new FileReader()
-
-    fileReader.onerror = () => reject(new Error('read-failed'))
-    fileReader.onload = () => {
-      const img = new Image()
-      img.onerror = () => reject(new Error('image-load-failed'))
-      img.onload = () => {
-        const ratio = Math.min(1, MAX_IMAGE_EDGE / Math.max(img.width, img.height))
-        const width = Math.max(1, Math.round(img.width * ratio))
-        const height = Math.max(1, Math.round(img.height * ratio))
-
-        const canvas = document.createElement('canvas')
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-
-        if (!ctx) {
-          reject(new Error('canvas-context-failed'))
-          return
-        }
-
-        ctx.drawImage(img, 0, 0, width, height)
-        resolve(canvas.toDataURL('image/jpeg', JPEG_QUALITY))
-      }
-
-      img.src = String(fileReader.result ?? '')
-    }
-
-    fileReader.readAsDataURL(file)
-  })
-}
-*/
 
 function cleanEnvValue(value) {
   return String(value ?? '')
@@ -110,10 +61,7 @@ async function requestAiFeedback({ score, emotionLabel, text }) {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages,
-      }),
+      body: JSON.stringify({ model: 'deepseek-chat', messages }),
       signal: controller.signal,
     })
 
@@ -129,35 +77,74 @@ async function requestAiFeedback({ score, emotionLabel, text }) {
   }
 }
 
-export default function AddEntryPage({ onSave, onToast }) {
+function compressImageToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+
+    reader.onerror = () => reject(new Error('read-failed'))
+    reader.onload = () => {
+      const img = new Image()
+      img.onerror = () => reject(new Error('image-load-failed'))
+      img.onload = () => {
+        const ratio = Math.min(1, MAX_IMAGE_EDGE / Math.max(img.width, img.height))
+        const width = Math.max(1, Math.round(img.width * ratio))
+        const height = Math.max(1, Math.round(img.height * ratio))
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          reject(new Error('canvas-context-failed'))
+          return
+        }
+
+        ctx.drawImage(img, 0, 0, width, height)
+        resolve(canvas.toDataURL('image/jpeg', JPEG_QUALITY))
+      }
+
+      img.src = String(reader.result ?? '')
+    }
+
+    reader.readAsDataURL(file)
+  })
+}
+
+export default function AddEntryPageV2({ onSave, onToast, onGenerateAiFeedback }) {
   const navigate = useNavigate()
   const imageInputRef = useRef(null)
   const [emotion, setEmotion] = useState(null)
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const [note, setNote] = useState('')
   const [image, setImage] = useState('')
-  const [selectedDateTime, setSelectedDateTime] = useState(() => toDateTimeLocalValue(new Date()))
   const [isSaving, setIsSaving] = useState(false)
+  const [selectedDateTime, setSelectedDateTime] = useState(() => toDateTimeLocalValue(new Date()))
 
   const handlePickImage = () => imageInputRef.current?.click()
 
   const handleImageChange = async (event) => {
     const file = event.target.files?.[0]
-    if (!file) return
-    if (!file.type?.startsWith('image/')) return
+    if (!file || !file.type?.startsWith('image/')) return
 
     if (file.size > MAX_UPLOAD_SIZE) {
-      onToast('存储空间已满，请清理或不带图片保存')
+      onToast?.('图片过大，请选择更小的图片')
       event.target.value = ''
       return
     }
 
     try {
       const compressedBase64 = await compressImageToBase64(file)
-      setImage(compressedBase64)
+      const approxBytes = Math.ceil((compressedBase64.length * 3) / 4)
+      if (approxBytes > MAX_BASE64_BYTES) {
+        setImage('')
+        onToast?.('图片仍然偏大，请换一张图片')
+        event.target.value = ''
+      } else {
+        setImage(compressedBase64)
+      }
     } catch {
       setImage('')
-      onToast('图片处理失败，请重试')
+      onToast?.('图片处理失败，请重试')
     }
 
     try {
@@ -173,19 +160,19 @@ export default function AddEntryPage({ onSave, onToast }) {
               : null
 
       if (!capturedAt || Number.isNaN(capturedAt.getTime())) return
-
       const diffMs = Date.now() - capturedAt.getTime()
       if (diffMs <= 60 * 60 * 1000 || diffMs < 0) return
-
       setSelectedDateTime(toDateTimeLocalValue(capturedAt))
     } catch {
       // Ignore EXIF parse failures for images without metadata.
     }
   }
 
-  const handleSave = () => {
-    if (!emotion) return
+  const handleSave = async () => {
+    if (!emotion || isSaving) return
+    setIsSaving(true)
 
+    const text = note.trim()
     const selected = selectedDateTime ? new Date(selectedDateTime) : new Date()
     const validDate = Number.isNaN(selected.getTime()) ? new Date() : selected
     const { localDate, localTime } = getLocalDateTimeParts(validDate)
@@ -197,14 +184,15 @@ export default function AddEntryPage({ onSave, onToast }) {
       emotion,
       score: emotion.score,
       mood: emotion.label,
-      note: note.trim(),
+      note: text,
       image,
       isFavorite: false,
+      ai_feedback: null,
     }
 
+    let savedEntry
     try {
-      onSave(entry)
-      navigate('/')
+      savedEntry = await onSave?.(entry)
     } catch (error) {
       const isQuotaError =
         error?.name === 'QuotaExceededError' ||
@@ -212,85 +200,49 @@ export default function AddEntryPage({ onSave, onToast }) {
         error?.code === 22 ||
         error?.code === 1014
 
-      if (isQuotaError) {
-        onToast('存储空间已满，请清理或不带图片保存')
-        return
-      }
+      if (isQuotaError) onToast?.('存储空间已满，请清理后重试')
+      else onToast?.('保存失败，请稍后重试')
 
-      throw error
-    }
-  }
-
-  const handleSaveWithAi = async () => {
-    if (!emotion || isSaving) return
-
-    setIsSaving(true)
-    const text = note.trim()
-
-    try {
-      const selected = selectedDateTime ? new Date(selectedDateTime) : new Date()
-      const validDate = Number.isNaN(selected.getTime()) ? new Date() : selected
-      const { localDate, localTime } = getLocalDateTimeParts(validDate)
-
-      let aiFeedback = null
-      if (text.length > 0) {
-        aiFeedback = await requestAiFeedback({
-          score: emotion.score,
-          emotionLabel: emotion.label,
-          text,
-        })
-      }
-
-      const entry = {
-        id: `${Date.now()}`,
-        date: localDate || getTodayKey(),
-        time: localTime,
-        emotion,
-        score: emotion.score,
-        mood: emotion.label,
-        note: text,
-        image,
-        isFavorite: false,
-        ai_feedback: aiFeedback,
-      }
-
-      await onSave(entry)
-    } catch (error) {
-      const isQuotaError =
-        error?.name === 'QuotaExceededError' ||
-        error?.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
-        error?.code === 22 ||
-        error?.code === 1014
-
-      if (isQuotaError) {
-        onToast('瀛樺偍绌洪棿宸叉弧锛岃娓呯悊鎴栦笉甯﹀浘鐗囦繚瀛?)
-      } else {
-        onToast('淇濆瓨澶辫触锛岃绋嶅悗閲嶈瘯')
-      }
-    } finally {
-      setEmotion(null)
-      setNote('')
-      setImage('')
-      setIsPickerOpen(false)
-      setSelectedDateTime(toDateTimeLocalValue(new Date()))
       setIsSaving(false)
-      navigate('/')
+      return
+    }
+
+    const savedEntryId = savedEntry?.id ?? entry.id
+    const selectedEmotion = emotion
+
+    setEmotion(null)
+    setNote('')
+    setImage('')
+    setIsPickerOpen(false)
+    setSelectedDateTime(toDateTimeLocalValue(new Date()))
+    setIsSaving(false)
+    navigate('/')
+
+    if (text.length > 0 && savedEntryId) {
+      window.setTimeout(() => {
+        void (async () => {
+          const aiFeedback = await requestAiFeedback({
+            score: selectedEmotion.score,
+            emotionLabel: selectedEmotion.label,
+            text,
+          })
+
+          if (!aiFeedback) return
+          await onGenerateAiFeedback?.(savedEntryId, aiFeedback)
+        })()
+      }, 0)
     }
   }
 
   const handleEmojiClick = (item) => {
-    setEmotion({
-      emoji: item.emoji,
-      label: item.label,
-      score: item.score,
-    })
+    setEmotion({ emoji: item.emoji, label: item.label, score: item.score })
     setIsPickerOpen(false)
   }
 
   return (
     <div className="space-y-4 pt-3">
       <TopBar title="记录现在的心情" />
-      <p className="text-base text-gray-700">此刻你的感觉怎么样?</p>
+      <p className="text-base text-gray-700">此刻你的感觉怎么样？</p>
 
       <div className="rounded-2xl bg-white p-4 shadow-sm">
         <div className="relative">
@@ -361,21 +313,18 @@ export default function AddEntryPage({ onSave, onToast }) {
 
       <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
 
-      {image && (
+      {image ? (
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           <img src={image} alt="预览" className="h-20 w-20 rounded-xl object-cover" />
         </div>
-      )}
+      ) : null}
 
       <button
-        onClick={handleSaveWithAi}
+        onClick={handleSave}
         disabled={!emotion || isSaving}
-        className={`w-full rounded-xl bg-indigo-500 py-4 text-base font-medium text-white disabled:cursor-not-allowed disabled:opacity-50 ${isSaving ? 'relative text-transparent' : ''}`}
+        className="w-full rounded-xl bg-indigo-500 py-4 text-base font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {isSaving ? (
-          <span className="absolute inset-0 flex items-center justify-center text-white">🌟 树洞正在思考...</span>
-        ) : null}
-        保存这次心情
+        {isSaving ? '保存中...' : '保存这次心情'}
       </button>
     </div>
   )

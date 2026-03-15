@@ -2,13 +2,13 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-
 import { useEffect, useMemo, useState } from 'react'
 import AppLayout from './components/AppLayout'
 import Toast from './components/Toast'
-import AddEntryPage from './pages/AddEntryPageModern'
+import AddEntryPage from './pages/AddEntryPageV2'
 import AuthPage from './pages/AuthPage'
 import DayListPage from './pages/DayListPage'
 import EntryDetailPage from './pages/EntryDetailPage'
-import HistoryPage from './pages/HistoryPageModern'
+import HistoryPage from './pages/HistoryPageV2'
 import ProfilePage from './pages/ProfilePage'
-import TodayPage from './pages/TodayPageModern'
+import TodayPage from './pages/TodayPageV2'
 import { groupEntriesByDay, readEntries } from './utils'
 import { supabase } from './supabaseClient'
 
@@ -203,7 +203,7 @@ export default function App() {
         writeGuestEntries(next)
         return next
       })
-      return
+      return guestEntry
     }
 
     if (!session?.user) throw new Error('not-authenticated')
@@ -229,6 +229,28 @@ export default function App() {
 
     const appended = rowToEntry(data)
     setEntries((prev) => [...prev, appended])
+    return appended
+  }
+
+  const handleUpdateAiFeedback = async (entryId, aiFeedback) => {
+    if (!entryId || !aiFeedback) return false
+
+    if (isGuest) {
+      setEntries((prev) => {
+        const next = prev.map((entry) => (entry.id === entryId ? { ...entry, ai_feedback: aiFeedback } : entry))
+        writeGuestEntries(next)
+        return next
+      })
+      return true
+    }
+
+    if (!session?.user) return false
+
+    const { error } = await supabase.from('entries').update({ ai_feedback: aiFeedback }).eq('id', entryId)
+    if (error) return false
+
+    setEntries((prev) => prev.map((entry) => (entry.id === entryId ? { ...entry, ai_feedback: aiFeedback } : entry)))
+    return true
   }
 
   const handleToggleFavorite = async (entryId) => {
@@ -394,7 +416,16 @@ export default function App() {
       ) : (
         <div className="mx-auto min-h-screen max-w-md bg-slate-50 px-4 pb-10 pt-5">
           <Routes>
-            <Route path="/add" element={<AddEntryPage onSave={handleAddEntry} onToast={showToast} />} />
+            <Route
+              path="/add"
+              element={
+                <AddEntryPage
+                  onSave={handleAddEntry}
+                  onToast={showToast}
+                  onGenerateAiFeedback={handleUpdateAiFeedback}
+                />
+              }
+            />
             <Route
               path="/day/:date"
               element={
