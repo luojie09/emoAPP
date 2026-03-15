@@ -18,7 +18,7 @@ function getTodayKey() {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
 }
 
-export default function TodayPageV2({ entries, onToggleFavorite, onLogout, onDeleteEntry }) {
+export default function TodayPageV2({ entries, onToggleFavorite, onDeleteEntry }) {
   const navigate = useNavigate()
   const [selectedImage, setSelectedImage] = useState(null)
   const longPressTimerRef = useRef(null)
@@ -80,7 +80,7 @@ export default function TodayPageV2({ entries, onToggleFavorite, onLogout, onDel
       <div className="bg-white px-6 pt-4 pb-3">
         <div className="flex items-center justify-between">
           <h1 className="text-[34px] font-bold tracking-tight">今天</h1>
-          <button onClick={onLogout} className="rounded-xl bg-gray-100 px-3 py-2 text-xs font-medium text-gray-700">
+          <button className="hidden">
             退出登录
           </button>
         </div>
