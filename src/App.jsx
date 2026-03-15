@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+﻿import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import AppLayout from './components/AppLayout'
 import Toast from './components/Toast'
@@ -160,11 +160,32 @@ function cleanEnvValue(value) {
     .replace(/^\[|\]$/g, '')
 }
 
-async function requestAiFeedback({ score, emotionLabel, text }) {
-  const baseUrl = cleanEnvValue(import.meta.env.VITE_AI_BASE_URL)
-  const apiKey = cleanEnvValue(import.meta.env.VITE_AI_API_KEY)
-  if (!baseUrl || !apiKey) return null
+function extractAiText(payload) {
+  const primary = payload?.content ?? payload?.choices?.[0]?.message?.content
+  let normalized = ''
 
+  if (typeof primary === 'string') {
+    normalized = primary.trim()
+  } else if (Array.isArray(primary)) {
+    normalized = primary
+      .map((item) => {
+        if (typeof item === 'string') return item
+        if (item && typeof item === 'object' && typeof item.text === 'string') return item.text
+        return ''
+      })
+      .join('')
+      .trim()
+  }
+
+  if (!normalized) {
+    const fallback = payload?.choices?.[0]?.message?.reasoning_content ?? payload?.reasoning_content
+    normalized = typeof fallback === 'string' ? fallback.trim() : ''
+  }
+
+  return normalized || null
+}
+
+async function requestAiFeedback({ score, emotionLabel, text }) {
   const lengthInstruction =
     score >= 4
       ? '字数控制在 150 到 200 字左右，简短轻快。'
@@ -179,71 +200,76 @@ async function requestAiFeedback({ score, emotionLabel, text }) {
    - 面对低分（1-2分）：做情绪的安全网。接纳情绪，不要说教，给予语言上的拥抱和深度开导。
 3. 语气与口吻：像一个极其懂他的老朋友，温柔、真诚、克制。
 4. 信件格式：请用一封短笺的方式来写，第一句固定写“亲爱的原子：”，后文自然延续，不要重复称呼。
-5. 格式与篇幅：${lengthInstruction} 务必适当分段（每段不要太长），保持排版的呼吸感。结尾可以自然地带一个温暖的 emoji（如 ✨, 🫂, ☕, 🎉）。`
+5. 格式与篇幅：${lengthInstruction} 务必适当分段（每段不要太长），保持排版的呼吸感。结尾可以自然地带一个温暖的 emoji（如 ?, ??, ?, ??）。`
 
   const userPrompt = `【今日心情】：${score}分\n【情绪标签】：${emotionLabel || '无'}\n【日记正文】：${text}`
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: userPrompt },
-  ]
+  const body = {
+    model: 'deepseek-chat',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+  }
 
   const controller = new AbortController()
   const timer = window.setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS)
 
   try {
+    const proxyResponse = await fetch('/api/treehole-feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+
+    if (proxyResponse.ok) {
+      const json = await proxyResponse.json()
+      const normalized = extractAiText(json)
+      if (normalized) return normalized
+      console.error('AI proxy response was empty:', json)
+    } else {
+      const errorText = await proxyResponse.text().catch(() => '')
+      console.error('AI proxy request failed:', proxyResponse.status, errorText)
+    }
+  } catch (error) {
+    console.error('AI proxy request threw:', error)
+  }
+
+  const baseUrl = cleanEnvValue(import.meta.env.VITE_AI_BASE_URL)
+  const apiKey = cleanEnvValue(import.meta.env.VITE_AI_API_KEY)
+  if (!baseUrl || !apiKey) return null
+
+  try {
     const endpoint = `${baseUrl.replace(/\/$/, '')}/chat/completions`
-    const response = await fetch(endpoint, {
+    const directResponse = await fetch(endpoint, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages,
-      }),
+      body: JSON.stringify(body),
       signal: controller.signal,
     })
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '')
-      console.error('AI feedback request failed:', response.status, errorText)
+    if (!directResponse.ok) {
+      const errorText = await directResponse.text().catch(() => '')
+      console.error('AI direct request failed:', directResponse.status, errorText)
       return null
     }
 
-    const json = await response.json()
-    const content = json?.choices?.[0]?.message?.content
-    let normalized = ''
-    if (typeof content === 'string') {
-      normalized = content.trim()
-    } else if (Array.isArray(content)) {
-      normalized = content
-        .map((item) => {
-          if (typeof item === 'string') return item
-          if (item && typeof item === 'object' && typeof item.text === 'string') return item.text
-          return ''
-        })
-        .join('')
-        .trim()
-    }
-
+    const json = await directResponse.json()
+    const normalized = extractAiText(json)
     if (!normalized) {
-      const fallbackContent = json?.choices?.[0]?.message?.reasoning_content
-      normalized = typeof fallbackContent === 'string' ? fallbackContent.trim() : ''
+      console.error('AI direct response was empty:', json)
     }
-
-    if (!normalized) {
-      console.error('AI feedback response was empty:', json)
-    }
-    return normalized || null
+    return normalized
   } catch (error) {
-    console.error('AI feedback request threw:', error)
+    console.error('AI direct request threw:', error)
     return null
   } finally {
     window.clearTimeout(timer)
   }
 }
-
 export default function App() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -286,14 +312,14 @@ export default function App() {
       .order('created_at', { ascending: false })
 
     if (error) {
-      showToast('加载数据失败，请稍后重试')
+      showToast('鍔犺浇鏁版嵁澶辫触锛岃绋嶅悗閲嶈瘯')
       return false
     }
 
     const mappedEntries = (data ?? []).map(rowToEntry)
     cleanupSyncedAiFeedbackOverrides(mappedEntries)
     setEntries(applyAiFeedbackOverrides(mappedEntries))
-    if (showSuccessToast) showToast('云端同步完成')
+    if (showSuccessToast) showToast('浜戠鍚屾瀹屾垚')
     return true
   }
 
@@ -315,7 +341,7 @@ export default function App() {
         .order('created_at', { ascending: false })
 
       if (error) {
-        showToast('加载数据失败，请稍后重试')
+        showToast('鍔犺浇鏁版嵁澶辫触锛岃绋嶅悗閲嶈瘯')
         return
       }
 
@@ -327,25 +353,20 @@ export default function App() {
     fetchCloudEntries()
   }, [session, isGuest])
 
-  // 🚑 这里是彻底修复后的注册/登录逻辑！
   const handleAuth = async ({ email, password, isSignUp }) => {
-    let authResponse;
-    if (isSignUp) {
-      authResponse = await supabase.auth.signUp({ email, password });
-    } else {
-      authResponse = await supabase.auth.signInWithPassword({ email, password });
-    }
+    const authResponse = isSignUp
+      ? await supabase.auth.signUp({ email, password })
+      : await supabase.auth.signInWithPassword({ email, password })
 
-    const { error } = authResponse;
-
+    const { error } = authResponse
     if (error) {
-      showToast(error.message);
-      return;
+      showToast(error.message)
+      return
     }
 
-    showToast(isSignUp ? '注册成功！' : '登录成功！');
+    showToast(isSignUp ? '注册成功' : '登录成功')
     setIsGuest(false)
-    navigate('/');
+    navigate('/')
   }
 
   const handleGuestLogin = () => {
@@ -614,19 +635,19 @@ export default function App() {
         writeGuestEntries(next)
         return next
       })
-      showToast('删除成功')
+      showToast('鍒犻櫎鎴愬姛')
       return true
     }
 
     const { error } = await supabase.from('entries').delete().eq('id', entryId)
 
     if (error) {
-      showToast('删除失败，请稍后重试')
+      showToast('鍒犻櫎澶辫触锛岃绋嶅悗閲嶈瘯')
       return false
     }
 
     setEntries((prev) => prev.filter((entry) => entry.id !== entryId))
-    showToast('删除成功')
+    showToast('鍒犻櫎鎴愬姛')
     return true
   }
 
@@ -646,7 +667,7 @@ export default function App() {
         writeGuestEntries(next)
         return next
       })
-      showToast('导入成功')
+      showToast('瀵煎叆鎴愬姛')
       return
     }
 
@@ -669,11 +690,11 @@ export default function App() {
 
     const { error } = await supabase.from('entries').insert(rows)
     if (error) {
-      showToast('导入失败，请确认文件格式正确')
+      showToast('瀵煎叆澶辫触锛岃纭鏂囦欢鏍煎紡姝ｇ‘')
       return
     }
 
-    showToast('数据导入成功！')
+    showToast('数据导入成功')
     window.setTimeout(() => window.location.reload(), 1500)
   }
 
@@ -774,3 +795,5 @@ export default function App() {
     </>
   )
 }
+
+
