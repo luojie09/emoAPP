@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import exifr from 'exifr'
 import TopBar from '../components/TopBar'
@@ -17,9 +17,23 @@ const EMOJI_LIST = [
   { emoji: '😭', score: 1, label: '大哭' }, { emoji: '😡', score: 1, label: '愤怒' }, { emoji: '🤬', score: 1, label: '咒骂' }, { emoji: '🤯', score: 1, label: '爆炸' }, { emoji: '😱', score: 1, label: '惊恐' }, { emoji: '🤢', score: 1, label: '恶心' }, { emoji: '🤮', score: 1, label: '呕吐' }, { emoji: '😫', score: 1, label: '疲惫' }, { emoji: '😩', score: 1, label: '崩溃' }, { emoji: '😾', score: 1, label: '生气猫' },
 ]
 
-function toDateTimeLocalValue(date) {
-  const pad = (value) => String(value).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+function padTimeValue(value) {
+  return String(value).padStart(2, '0')
+}
+
+function toLocalDateKey(date) {
+  return `${date.getFullYear()}-${padTimeValue(date.getMonth() + 1)}-${padTimeValue(date.getDate())}`
+}
+
+function createRecentDateOptions(days = 7) {
+  const base = new Date()
+  const options = []
+  for (let index = 0; index < days; index += 1) {
+    const date = new Date(base.getFullYear(), base.getMonth(), base.getDate() - index)
+    const label = index === 0 ? '今天' : index === 1 ? '昨天' : `${date.getMonth() + 1}月${date.getDate()}日`
+    options.push({ value: toLocalDateKey(date), label })
+  }
+  return options
 }
 
 function cleanEnvValue(value) {
@@ -122,9 +136,33 @@ export default function AddEntryPageV2({ onSave, onQueueAiTask, onToast, onGener
   const [note, setNote] = useState('')
   const [image, setImage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
-  const [selectedDateTime, setSelectedDateTime] = useState(() => toDateTimeLocalValue(new Date()))
+  const [selectedDate, setSelectedDate] = useState(() => toLocalDateKey(new Date()))
+  const [selectedHour, setSelectedHour] = useState(() => padTimeValue(new Date().getHours()))
+  const [selectedMinute, setSelectedMinute] = useState(() => padTimeValue(new Date().getMinutes()))
+  const dateOptions = useMemo(() => createRecentDateOptions(7), [])
+  const hourOptions = useMemo(() => Array.from({ length: 24 }, (_, hour) => padTimeValue(hour)), [])
+  const minuteOptions = useMemo(() => Array.from({ length: 60 }, (_, minute) => padTimeValue(minute)), [])
+  const selectedDateTime = `${selectedDate}T${selectedHour}:${selectedMinute}`
 
   const handlePickImage = () => imageInputRef.current?.click()
+
+  const applyPickerDateTime = (date, options = { clampDate: false }) => {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return
+
+    const candidateDate = toLocalDateKey(date)
+    const inRange = dateOptions.some((option) => option.value === candidateDate)
+    if (inRange) {
+      setSelectedDate(candidateDate)
+    } else if (options.clampDate) {
+      const oldest = dateOptions[dateOptions.length - 1]?.value
+      if (oldest) {
+        setSelectedDate(oldest)
+      }
+    }
+
+    setSelectedHour(padTimeValue(date.getHours()))
+    setSelectedMinute(padTimeValue(date.getMinutes()))
+  }
 
   const handleImageChange = async (event) => {
     const file = event.target.files?.[0]
@@ -166,7 +204,7 @@ export default function AddEntryPageV2({ onSave, onQueueAiTask, onToast, onGener
       if (!capturedAt || Number.isNaN(capturedAt.getTime())) return
       const diffMs = Date.now() - capturedAt.getTime()
       if (diffMs <= 60 * 60 * 1000 || diffMs < 0) return
-      setSelectedDateTime(toDateTimeLocalValue(capturedAt))
+      applyPickerDateTime(capturedAt, { clampDate: true })
     } catch {
       // Ignore EXIF parse failures for images without metadata.
     }
@@ -228,7 +266,10 @@ export default function AddEntryPageV2({ onSave, onQueueAiTask, onToast, onGener
     setNote('')
     setImage('')
     setIsPickerOpen(false)
-    setSelectedDateTime(toDateTimeLocalValue(new Date()))
+    const now = new Date()
+    setSelectedDate(toLocalDateKey(now))
+    setSelectedHour(padTimeValue(now.getHours()))
+    setSelectedMinute(padTimeValue(now.getMinutes()))
     setIsSaving(false)
     navigate('/')
   }
@@ -288,12 +329,43 @@ export default function AddEntryPageV2({ onSave, onQueueAiTask, onToast, onGener
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-sm">
-        <input
-          type="datetime-local"
-          value={selectedDateTime}
-          onChange={(event) => setSelectedDateTime(event.target.value)}
-          className="w-full rounded-xl border border-gray-100 bg-white px-3 py-3 text-sm text-gray-700 focus:outline-none"
-        />
+        <div className="grid grid-cols-3 gap-2">
+          <select
+            value={selectedDate}
+            onChange={(event) => setSelectedDate(event.target.value)}
+            className="w-full appearance-none rounded-xl bg-gray-50 px-2 py-3 text-center text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-100"
+          >
+            {dateOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={selectedHour}
+            onChange={(event) => setSelectedHour(event.target.value)}
+            className="w-full appearance-none rounded-xl bg-gray-50 px-2 py-3 text-center text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-100"
+          >
+            {hourOptions.map((hour) => (
+              <option key={hour} value={hour}>
+                {hour} 时
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={selectedMinute}
+            onChange={(event) => setSelectedMinute(event.target.value)}
+            className="w-full appearance-none rounded-xl bg-gray-50 px-2 py-3 text-center text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-100"
+          >
+            {minuteOptions.map((minute) => (
+              <option key={minute} value={minute}>
+                {minute} 分
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <button
