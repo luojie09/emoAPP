@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import exifr from 'exifr'
 import TopBar from '../components/TopBar'
 import { getTodayKey, getLocalDateTimeParts } from '../utils'
 
@@ -82,6 +83,7 @@ export default function AddEntryPage({ onSave, onToast }) {
   const handleImageChange = async (event) => {
     const file = event.target.files?.[0]
     if (!file) return
+    if (!file.type?.startsWith('image/')) return
 
     if (file.size > MAX_UPLOAD_SIZE) {
       onToast('存储空间已满，请清理或不带图片保存')
@@ -95,6 +97,28 @@ export default function AddEntryPage({ onSave, onToast }) {
     } catch {
       setImage('')
       onToast('图片处理失败，请重试')
+    }
+
+    try {
+      const exifData = await exifr.parse(file)
+      const exifDateTime = exifData?.DateTimeOriginal
+      const capturedAt =
+        exifDateTime instanceof Date
+          ? exifDateTime
+          : exifDateTime
+            ? new Date(exifDateTime)
+            : file.lastModified
+              ? new Date(file.lastModified)
+              : null
+
+      if (!capturedAt || Number.isNaN(capturedAt.getTime())) return
+
+      const diffMs = Date.now() - capturedAt.getTime()
+      if (diffMs <= 60 * 60 * 1000 || diffMs < 0) return
+
+      setSelectedDateTime(toDateTimeLocalValue(capturedAt))
+    } catch {
+      // Ignore EXIF parse failures for images without metadata.
     }
   }
 
