@@ -1,11 +1,12 @@
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
-import Layout from './components/Layout'
+import AppLayout from './components/AppLayout'
 import Toast from './components/Toast'
 import AddEntryPage from './pages/AddEntryPage'
 import AuthPage from './pages/AuthPage'
 import DayDetailPage from './pages/DayDetailPage'
 import HistoryPage from './pages/HistoryPageModern'
+import ProfilePage from './pages/ProfilePage'
 import TodayPage from './pages/TodayPageModern'
 import { groupEntriesByDay, readEntries } from './utils'
 import { supabase } from './supabaseClient'
@@ -45,6 +46,12 @@ function writeGuestEntries(entries) {
   localStorage.setItem(GUEST_ENTRIES_KEY, JSON.stringify(entries))
 }
 
+function getTabFromPath(pathname) {
+  if (pathname.startsWith('/history')) return 'history'
+  if (pathname.startsWith('/profile')) return 'profile'
+  return 'today'
+}
+
 export default function App() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -52,6 +59,7 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState('')
   const [session, setSession] = useState(null)
   const [isGuest, setIsGuest] = useState(false)
+  const [currentTab, setCurrentTab] = useState(() => getTabFromPath(location.pathname))
 
   const showToast = (message, duration = 1800) => {
     setToastMessage(message)
@@ -71,6 +79,28 @@ export default function App() {
 
     return () => subscription.unsubscribe()
   }, [])
+
+  useEffect(() => {
+    setCurrentTab(getTabFromPath(location.pathname))
+  }, [location.pathname])
+
+  const fetchCloudEntries = async (showSuccessToast = false) => {
+    if (!session) return false
+
+    const { data, error } = await supabase
+      .from('entries')
+      .select('id,user_id,emoji,label,score,text,image_url,is_favorite,created_at')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      showToast('加载数据失败，请稍后重试')
+      return false
+    }
+
+    setEntries((data ?? []).map(rowToEntry))
+    if (showSuccessToast) showToast('云端同步完成')
+    return true
+  }
 
   useEffect(() => {
     if (isGuest) {
@@ -97,7 +127,7 @@ export default function App() {
       setEntries((data ?? []).map(rowToEntry))
     }
 
-    loadEntries()
+    fetchCloudEntries()
   }, [session, isGuest])
 
   // 🚑 这里是彻底修复后的注册/登录逻辑！
@@ -125,6 +155,24 @@ export default function App() {
     setIsGuest(true)
     setEntries(readGuestEntries())
     navigate('/')
+  }
+
+  const handleGoToLogin = () => {
+    setIsGuest(false)
+    setEntries([])
+    navigate('/auth')
+  }
+
+  const handleTabChange = (tab) => {
+    setCurrentTab(tab)
+    if (tab === 'today') navigate('/')
+    if (tab === 'history') navigate('/history')
+    if (tab === 'profile') navigate('/profile')
+  }
+
+  const handleManualSync = async () => {
+    if (isGuest || !session) return
+    await fetchCloudEntries(true)
   }
 
   const handleLogout = async () => {
@@ -293,7 +341,7 @@ export default function App() {
     <>
       <Toast message={toastMessage} />
       {withTabs ? (
-        <Layout>
+        <AppLayout currentTab={currentTab} onTabChange={handleTabChange}>
           <Routes>
             <Route
               path="/"
@@ -312,17 +360,29 @@ export default function App() {
                 <HistoryPage
                   historyDays={historyDays}
                   entries={entries}
-                  onToast={showToast}
-                  onImportEntries={handleImportEntries}
-                  onLogout={handleLogout}
                   onToggleFavorite={handleToggleFavorite}
                   onDeleteEntry={handleDeleteEntry}
                 />
               }
             />
+            <Route
+              path="/profile"
+              element={
+                <ProfilePage
+                  session={session}
+                  isGuest={isGuest}
+                  entries={entries}
+                  onLogout={handleLogout}
+                  onLogin={handleGoToLogin}
+                  onImportEntries={handleImportEntries}
+                  onToast={showToast}
+                  onSync={handleManualSync}
+                />
+              }
+            />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-        </Layout>
+        </AppLayout>
       ) : (
         <div className="mx-auto min-h-screen max-w-md bg-slate-50 px-4 pb-10 pt-5">
           <Routes>
