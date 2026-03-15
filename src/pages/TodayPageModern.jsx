@@ -153,7 +153,7 @@ export default function TodayPageModern({ entries, onToggleFavorite, onLogout, o
                   onMouseLeave={clearLongPress}
                   onTouchMove={clearLongPress}
                 >
-                  <div className="px-4 py-4 flex items-start gap-3">
+                  <div className="px-4 py-4 relative">
                     <div
                       className="w-12 h-12 rounded-full flex items-center justify-center text-2xl flex-shrink-0"
                       style={{ backgroundColor: `${moodColor}20` }}
@@ -161,21 +161,21 @@ export default function TodayPageModern({ entries, onToggleFavorite, onLogout, o
                       {entry?.emotion?.emoji ?? '🙂'}
                     </div>
 
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 mt-3">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="text-[17px] font-semibold">{entry?.emotion?.label ?? entry?.mood ?? '心情'}</span>
-                        <span className="text-[15px] text-[#8e8e93]">{entry.time}</span>
+                        <span className="text-[15px] text-[#8e8e93]">{`${entry.date} ${entry.time}`}</span>
                         {entry?.ai_feedback ? <Sparkles size={14} className="text-[#FF9500]" /> : null}
                       </div>
                       {entry.note ? (
-                        <p className="text-[15px] text-[#3c3c43] leading-snug whitespace-pre-wrap">{entry.note}</p>
+                        <p className="text-[15px] text-[#3c3c43] leading-relaxed whitespace-pre-wrap">{entry.note}</p>
                       ) : null}
 
                       {entry.image ? (
                         <img
                           src={entry.image}
                           alt="心情图片"
-                          className="mt-3 h-20 w-20 rounded-xl object-cover cursor-pointer"
+                          className="mt-3 w-full max-h-72 rounded-xl object-cover cursor-pointer hover:opacity-90"
                           onClick={(event) => {
                             event.stopPropagation()
                             setSelectedImage(entry.image)
@@ -193,7 +193,7 @@ export default function TodayPageModern({ entries, onToggleFavorite, onLogout, o
                       }}
                       onMouseDown={(event) => event.stopPropagation()}
                       onTouchStart={(event) => event.stopPropagation()}
-                      className="flex-shrink-0 ml-2 p-2 -mr-2"
+                      className="absolute top-4 right-4 p-2 rounded-lg"
                     >
                       <Star
                         size={20}

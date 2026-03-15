@@ -4,6 +4,7 @@ import AppLayout from './components/AppLayout'
 import Toast from './components/Toast'
 import AddEntryPage from './pages/AddEntryPageModern'
 import AuthPage from './pages/AuthPage'
+import DayListPage from './pages/DayListPage'
 import EntryDetailPage from './pages/EntryDetailPage'
 import HistoryPage from './pages/HistoryPageModern'
 import ProfilePage from './pages/ProfilePage'
@@ -328,6 +329,7 @@ export default function App() {
   const historyDays = useMemo(() => groupEntriesByDay(entries), [entries])
   const withTabs =
     !location.pathname.startsWith('/add') &&
+    !location.pathname.startsWith('/day/') &&
     !location.pathname.startsWith('/history/') &&
     !location.pathname.startsWith('/entry/')
 
@@ -393,6 +395,16 @@ export default function App() {
         <div className="mx-auto min-h-screen max-w-md bg-slate-50 px-4 pb-10 pt-5">
           <Routes>
             <Route path="/add" element={<AddEntryPage onSave={handleAddEntry} onToast={showToast} />} />
+            <Route
+              path="/day/:date"
+              element={
+                <DayListPage
+                  entries={entries}
+                  onToggleFavorite={handleToggleFavorite}
+                  onDeleteEntry={handleDeleteEntry}
+                />
+              }
+            />
             <Route path="/entry/:id" element={<EntryDetailPage entries={entries} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Calendar, ChevronRight, Sparkles, Star, TrendingUp } from 'lucide-react'
 import ImageModal from '../components/ImageModal'
 import { formatLocalMonthDay, getEntryLocalDateKey } from '../utils'
@@ -181,7 +181,10 @@ export default function HistoryPageModern({
                     className="bg-white rounded-[20px] shadow-sm hover:shadow-md transition-all overflow-hidden"
                     style={{ animation: `slideIn 0.3s ease-out ${index * 0.05}s backwards` }}
                   >
-                    <Link to={record.latestEntryId ? `/entry/${record.latestEntryId}` : '/history'} className="w-full px-5 py-5 flex items-center gap-4 text-left group">
+                    <button
+                      onClick={() => navigate(`/day/${record.date}`)}
+                      className="w-full px-5 py-5 flex items-center gap-4 text-left group"
+                    >
                       <div
                         className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl bg-gradient-to-br ${getMoodColor(record.average)} text-white shadow-lg`}
                       >
@@ -200,7 +203,7 @@ export default function HistoryPageModern({
                       </div>
 
                       <ChevronRight size={20} className="text-[#C7C7CC] group-hover:text-[#007AFF] transition-colors flex-shrink-0" />
-                    </Link>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -229,7 +232,7 @@ export default function HistoryPageModern({
                     onMouseLeave={clearLongPress}
                     onTouchMove={clearLongPress}
                   >
-                    <div className="px-4 py-4 flex items-start gap-3">
+                    <div className="px-4 py-4 relative">
                       <div
                         className="w-12 h-12 rounded-full flex items-center justify-center text-2xl flex-shrink-0"
                         style={{ backgroundColor: `${moodColor}20` }}
@@ -237,21 +240,21 @@ export default function HistoryPageModern({
                         {entry?.emotion?.emoji ?? '🙂'}
                       </div>
 
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 mt-3">
                         <div className="flex items-center gap-2 mb-0.5">
                           <span className="text-[17px] font-semibold">{entry?.emotion?.label ?? entry?.mood ?? '心情'}</span>
                           <span className="text-[15px] text-[#8e8e93]">{`${entry.date} ${entry.time}`}</span>
                           {entry?.ai_feedback ? <Sparkles size={14} className="text-[#FF9500]" /> : null}
                         </div>
                         {entry.note ? (
-                          <p className="text-[15px] text-[#3c3c43] leading-snug whitespace-pre-wrap">{entry.note}</p>
+                          <p className="text-[15px] text-[#3c3c43] leading-relaxed whitespace-pre-wrap">{entry.note}</p>
                         ) : null}
 
                         {entry.image ? (
                           <img
                             src={entry.image}
                             alt="心情图片"
-                            className="mt-3 h-20 w-20 rounded-xl object-cover cursor-pointer"
+                            className="mt-3 w-full max-h-72 rounded-xl object-cover cursor-pointer hover:opacity-90"
                             onClick={(event) => {
                               event.stopPropagation()
                               setSelectedImage(entry.image)
@@ -269,7 +272,7 @@ export default function HistoryPageModern({
                         }}
                         onMouseDown={(event) => event.stopPropagation()}
                         onTouchStart={(event) => event.stopPropagation()}
-                        className="flex-shrink-0 ml-2 p-2 -mr-2"
+                        className="absolute top-4 right-4 p-2 rounded-lg"
                       >
                         <Star
                           size={20}
