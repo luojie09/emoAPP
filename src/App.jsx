@@ -378,13 +378,13 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (pendingAiProcessorRef.current) return
-    const tasks = readPendingAiTasks()
-    if (!tasks.length) return
+    const processPendingAiTasks = async () => {
+      if (pendingAiProcessorRef.current) return
+      const tasks = readPendingAiTasks()
+      if (!tasks.length) return
 
-    pendingAiProcessorRef.current = true
+      pendingAiProcessorRef.current = true
 
-    void (async () => {
       try {
         for (const task of tasks) {
           await generateAndSaveAIFeedback(task.entryId, task.text, task.score, task.emotionLabel)
@@ -392,7 +392,15 @@ export default function App() {
       } finally {
         pendingAiProcessorRef.current = false
       }
-    })()
+    }
+
+    void processPendingAiTasks()
+
+    const intervalId = window.setInterval(() => {
+      void processPendingAiTasks()
+    }, 15000)
+
+    return () => window.clearInterval(intervalId)
   }, [session, isGuest])
 
   const handleToggleFavorite = async (entryId) => {
