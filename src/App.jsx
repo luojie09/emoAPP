@@ -5,7 +5,7 @@ import Toast from './components/Toast'
 import AddEntryPage from './pages/AddEntryPageV2'
 import AuthPage from './pages/AuthPage'
 import DayListPage from './pages/DayListPage'
-import EntryDetailPage from './pages/EntryDetailPage'
+import EntryDetailPage from './pages/EntryDetailPageV2'
 import HistoryPage from './pages/HistoryPageV2'
 import ProfilePage from './pages/ProfilePage'
 import TodayPage from './pages/TodayPageV2'
@@ -96,7 +96,8 @@ async function requestAiFeedback({ score, emotionLabel, text }) {
    - 面对平淡（3分）：做安静的陪伴者，认可日常的平静。
    - 面对低分（1-2分）：做情绪的安全网。接纳情绪，不要说教，给予语言上的拥抱和深度开导。
 3. 语气与口吻：像一个极其懂他的老朋友，温柔、真诚、克制。
-4. 格式与篇幅：${lengthInstruction} 务必适当分段（每段不要太长），保持排版的呼吸感。结尾可以自然地带一个温暖的 emoji（如 ✨, 🫂, ☕, 🎉）。`
+4. 信件格式：请用一封短笺的方式来写，第一句固定写“亲爱的原子：”，后文自然延续，不要重复称呼。
+5. 格式与篇幅：${lengthInstruction} 务必适当分段（每段不要太长），保持排版的呼吸感。结尾可以自然地带一个温暖的 emoji（如 ✨, 🫂, ☕, 🎉）。`
 
   const userPrompt = `【今日心情】：${score}分\n【情绪标签】：${emotionLabel || '无'}\n【日记正文】：${text}`
   const messages = [
