@@ -32,6 +32,7 @@ function rowToEntry(row) {
 
 const GUEST_ENTRIES_KEY = 'guest_entries'
 const PENDING_AI_TASKS_KEY = 'pending_ai_tasks'
+const AI_REQUEST_TIMEOUT_MS = 45000
 
 function readGuestEntries() {
   const raw = localStorage.getItem(GUEST_ENTRIES_KEY)
@@ -106,7 +107,7 @@ async function requestAiFeedback({ score, emotionLabel, text }) {
   ]
 
   const controller = new AbortController()
-  const timer = window.setTimeout(() => controller.abort(), 15000)
+  const timer = window.setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS)
 
   try {
     const endpoint = `${baseUrl.replace(/\/$/, '')}/chat/completions`
@@ -123,12 +124,21 @@ async function requestAiFeedback({ score, emotionLabel, text }) {
       signal: controller.signal,
     })
 
-    if (!response.ok) return null
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '')
+      console.error('AI feedback request failed:', response.status, errorText)
+      return null
+    }
+
     const json = await response.json()
     const content = json?.choices?.[0]?.message?.content
     const normalized = typeof content === 'string' ? content.trim() : ''
+    if (!normalized) {
+      console.error('AI feedback response was empty:', json)
+    }
     return normalized || null
-  } catch {
+  } catch (error) {
+    console.error('AI feedback request threw:', error)
     return null
   } finally {
     window.clearTimeout(timer)
@@ -355,13 +365,24 @@ export default function App() {
 
       if (!session?.user) return false
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('entries')
         .update({ ai_feedback: generatedText })
+        .eq('user_id', session.user.id)
         .eq('id', newEntryId)
+        .select('id, ai_feedback')
+        .maybeSingle()
 
       if (error) {
         console.error('AI feedback update failed:', error)
+        return false
+      }
+
+      if (!data) {
+        console.error('AI feedback update affected 0 rows:', {
+          entryId: newEntryId,
+          userId: session.user.id,
+        })
         return false
       }
 
