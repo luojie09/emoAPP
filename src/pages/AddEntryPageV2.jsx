@@ -214,6 +214,10 @@ export default function AddEntryPageV2({ onSave, onToast, onGenerateAiFeedback }
     const savedEntryId = savedEntry?.id ?? entry.id
     const selectedEmotion = emotion
 
+    if (text.length > 0 && savedEntryId) {
+      void onGenerateAiFeedback?.(savedEntryId, text, selectedEmotion.score, selectedEmotion.label)
+    }
+
     setEmotion(null)
     setNote('')
     setImage('')
@@ -221,21 +225,6 @@ export default function AddEntryPageV2({ onSave, onToast, onGenerateAiFeedback }
     setSelectedDateTime(toDateTimeLocalValue(new Date()))
     setIsSaving(false)
     navigate('/')
-
-    if (text.length > 0 && savedEntryId) {
-      window.setTimeout(() => {
-        void (async () => {
-          const aiFeedback = await requestAiFeedback({
-            score: selectedEmotion.score,
-            emotionLabel: selectedEmotion.label,
-            text,
-          })
-
-          if (!aiFeedback) return
-          await onGenerateAiFeedback?.(savedEntryId, aiFeedback)
-        })()
-      }, 0)
-    }
   }
 
   const handleEmojiClick = (item) => {

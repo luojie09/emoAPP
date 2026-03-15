@@ -54,6 +54,69 @@ function getTabFromPath(pathname) {
   return 'today'
 }
 
+function cleanEnvValue(value) {
+  return String(value ?? '')
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .replace(/^\[|\]$/g, '')
+}
+
+async function requestAiFeedback({ score, emotionLabel, text }) {
+  const baseUrl = cleanEnvValue(import.meta.env.VITE_AI_BASE_URL)
+  const apiKey = cleanEnvValue(import.meta.env.VITE_AI_API_KEY)
+  if (!baseUrl || !apiKey) return null
+
+  const lengthInstruction =
+    score >= 4
+      ? '字数控制在 150 到 200 字左右，简短轻快。'
+      : '字数控制在 300 到 500 字左右，给予充足的心理抚慰和深度共情。'
+
+  const systemPrompt = `你是一个名为“时光树洞”的专属情绪陪伴者。你的任务是阅读用户的日记，并给予温暖、极具共情力的回音。
+【核心规则】
+1. 紧扣细节：必须在回复中自然提取或呼应用户日记里的具体细节，让用户确信你认真阅读了。
+2. 情感同频：
+   - 面对高分（4-5分）：做快乐放大器，肯定他们的小确幸。
+   - 面对平淡（3分）：做安静的陪伴者，认可日常的平静。
+   - 面对低分（1-2分）：做情绪的安全网。接纳情绪，不要说教，给予语言上的拥抱和深度开导。
+3. 语气与口吻：像一个极其懂他的老朋友，温柔、真诚、克制。
+4. 格式与篇幅：${lengthInstruction} 务必适当分段（每段不要太长），保持排版的呼吸感。结尾可以自然地带一个温暖的 emoji（如 ✨, 🫂, ☕, 🎉）。`
+
+  const userPrompt = `【今日心情】：${score}分\n【情绪标签】：${emotionLabel || '无'}\n【日记正文】：${text}`
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userPrompt },
+  ]
+
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), 15000)
+
+  try {
+    const endpoint = `${baseUrl.replace(/\/$/, '')}/chat/completions`
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages,
+      }),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) return null
+    const json = await response.json()
+    const content = json?.choices?.[0]?.message?.content
+    const normalized = typeof content === 'string' ? content.trim() : ''
+    return normalized || null
+  } catch {
+    return null
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
 export default function App() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -232,25 +295,48 @@ export default function App() {
     return appended
   }
 
-  const handleUpdateAiFeedback = async (entryId, aiFeedback) => {
-    if (!entryId || !aiFeedback) return false
+  const generateAndSaveAIFeedback = async (newEntryId, text, score, emotionLabel = '') => {
+    try {
+      const normalizedText = typeof text === 'string' ? text.trim() : ''
+      if (!newEntryId || !normalizedText) return false
 
-    if (isGuest) {
-      setEntries((prev) => {
-        const next = prev.map((entry) => (entry.id === entryId ? { ...entry, ai_feedback: aiFeedback } : entry))
-        writeGuestEntries(next)
-        return next
+      const generatedText = await requestAiFeedback({
+        score: Number(score ?? 3),
+        emotionLabel,
+        text: normalizedText,
       })
+      if (!generatedText) return false
+
+      if (isGuest) {
+        const localEntries = readGuestEntries()
+        const next = localEntries.map((entry) =>
+          String(entry.id) === String(newEntryId) ? { ...entry, ai_feedback: generatedText } : entry,
+        )
+        writeGuestEntries(next)
+        setEntries(next)
+        return true
+      }
+
+      if (!session?.user) return false
+
+      const { error } = await supabase
+        .from('entries')
+        .update({ ai_feedback: generatedText })
+        .eq('id', newEntryId)
+
+      if (error) {
+        console.error('AI feedback update failed:', error)
+        return false
+      }
+
+      setEntries((prev) =>
+        prev.map((entry) => (String(entry.id) === String(newEntryId) ? { ...entry, ai_feedback: generatedText } : entry)),
+      )
       return true
+    } catch (error) {
+      console.error('generateAndSaveAIFeedback failed:', error)
+      return false
     }
-
-    if (!session?.user) return false
-
-    const { error } = await supabase.from('entries').update({ ai_feedback: aiFeedback }).eq('id', entryId)
-    if (error) return false
-
-    setEntries((prev) => prev.map((entry) => (entry.id === entryId ? { ...entry, ai_feedback: aiFeedback } : entry)))
-    return true
   }
 
   const handleToggleFavorite = async (entryId) => {
@@ -422,7 +508,7 @@ export default function App() {
                 <AddEntryPage
                   onSave={handleAddEntry}
                   onToast={showToast}
-                  onGenerateAiFeedback={handleUpdateAiFeedback}
+                  onGenerateAiFeedback={generateAndSaveAIFeedback}
                 />
               }
             />
