@@ -114,7 +114,7 @@ function compressImageToBase64(file) {
   })
 }
 
-export default function AddEntryPageV2({ onSave, onToast, onGenerateAiFeedback }) {
+export default function AddEntryPageV2({ onSave, onQueueAiTask, onToast, onGenerateAiFeedback }) {
   const navigate = useNavigate()
   const imageInputRef = useRef(null)
   const [emotion, setEmotion] = useState(null)
@@ -215,6 +215,12 @@ export default function AddEntryPageV2({ onSave, onToast, onGenerateAiFeedback }
     const selectedEmotion = emotion
 
     if (text.length > 0 && savedEntryId) {
+      onQueueAiTask?.({
+        entryId: savedEntryId,
+        text,
+        score: selectedEmotion.score,
+        emotionLabel: selectedEmotion.label,
+      })
       void onGenerateAiFeedback?.(savedEntryId, text, selectedEmotion.score, selectedEmotion.label)
     }
 

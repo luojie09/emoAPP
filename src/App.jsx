@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import AppLayout from './components/AppLayout'
 import Toast from './components/Toast'
 import AddEntryPage from './pages/AddEntryPageV2'
@@ -31,6 +31,7 @@ function rowToEntry(row) {
 }
 
 const GUEST_ENTRIES_KEY = 'guest_entries'
+const PENDING_AI_TASKS_KEY = 'pending_ai_tasks'
 
 function readGuestEntries() {
   const raw = localStorage.getItem(GUEST_ENTRIES_KEY)
@@ -46,6 +47,22 @@ function readGuestEntries() {
 
 function writeGuestEntries(entries) {
   localStorage.setItem(GUEST_ENTRIES_KEY, JSON.stringify(entries))
+}
+
+function readPendingAiTasks() {
+  const raw = localStorage.getItem(PENDING_AI_TASKS_KEY)
+  if (!raw) return []
+
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function writePendingAiTasks(tasks) {
+  localStorage.setItem(PENDING_AI_TASKS_KEY, JSON.stringify(tasks))
 }
 
 function getTabFromPath(pathname) {
@@ -120,6 +137,7 @@ async function requestAiFeedback({ score, emotionLabel, text }) {
 export default function App() {
   const location = useLocation()
   const navigate = useNavigate()
+  const pendingAiProcessorRef = useRef(false)
   const [entries, setEntries] = useState([])
   const [toastMessage, setToastMessage] = useState('')
   const [session, setSession] = useState(null)
@@ -295,10 +313,26 @@ export default function App() {
     return appended
   }
 
+  const enqueuePendingAiTask = (task) => {
+    if (!task?.entryId || !task?.text) return
+    const existing = readPendingAiTasks()
+    const deduped = existing.filter((item) => String(item.entryId) !== String(task.entryId))
+    deduped.push(task)
+    writePendingAiTasks(deduped)
+  }
+
+  const removePendingAiTask = (entryId) => {
+    const next = readPendingAiTasks().filter((item) => String(item.entryId) !== String(entryId))
+    writePendingAiTasks(next)
+  }
+
   const generateAndSaveAIFeedback = async (newEntryId, text, score, emotionLabel = '') => {
     try {
       const normalizedText = typeof text === 'string' ? text.trim() : ''
-      if (!newEntryId || !normalizedText) return false
+      if (!newEntryId || !normalizedText) {
+        removePendingAiTask(newEntryId)
+        return false
+      }
 
       const generatedText = await requestAiFeedback({
         score: Number(score ?? 3),
@@ -314,6 +348,7 @@ export default function App() {
         )
         writeGuestEntries(next)
         setEntries(next)
+        removePendingAiTask(newEntryId)
         return true
       }
 
@@ -332,12 +367,32 @@ export default function App() {
       setEntries((prev) =>
         prev.map((entry) => (String(entry.id) === String(newEntryId) ? { ...entry, ai_feedback: generatedText } : entry)),
       )
+      removePendingAiTask(newEntryId)
+      void fetchCloudEntries()
       return true
     } catch (error) {
       console.error('generateAndSaveAIFeedback failed:', error)
       return false
     }
   }
+
+  useEffect(() => {
+    if (pendingAiProcessorRef.current) return
+    const tasks = readPendingAiTasks()
+    if (!tasks.length) return
+
+    pendingAiProcessorRef.current = true
+
+    void (async () => {
+      try {
+        for (const task of tasks) {
+          await generateAndSaveAIFeedback(task.entryId, task.text, task.score, task.emotionLabel)
+        }
+      } finally {
+        pendingAiProcessorRef.current = false
+      }
+    })()
+  }, [session, isGuest])
 
   const handleToggleFavorite = async (entryId) => {
     const target = entries.find((entry) => entry.id === entryId)
@@ -507,6 +562,7 @@ export default function App() {
               element={
                 <AddEntryPage
                   onSave={handleAddEntry}
+                  onQueueAiTask={enqueuePendingAiTask}
                   onToast={showToast}
                   onGenerateAiFeedback={generateAndSaveAIFeedback}
                 />
