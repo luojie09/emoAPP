@@ -33,6 +33,19 @@ function rowToEntry(row) {
 const GUEST_ENTRIES_KEY = 'guest_entries'
 const PENDING_AI_TASKS_KEY = 'pending_ai_tasks'
 const AI_REQUEST_TIMEOUT_MS = 45000
+const MIN_AI_FEEDBACK_CHARS = 60
+
+function isAiFeedbackTooLongError(error) {
+  const raw = `${error?.message ?? ''} ${error?.details ?? ''} ${error?.hint ?? ''} ${error?.code ?? ''}`.toLowerCase()
+  return raw.includes('22001') || raw.includes('too long') || raw.includes('character varying')
+}
+
+function shrinkAiFeedback(text) {
+  const normalized = String(text ?? '').trim()
+  if (normalized.length <= MIN_AI_FEEDBACK_CHARS) return normalized
+  const nextLength = Math.max(MIN_AI_FEEDBACK_CHARS, Math.floor(normalized.length * 0.6))
+  return `${normalized.slice(0, nextLength).trimEnd()}...`
+}
 
 function readGuestEntries() {
   const raw = localStorage.getItem(GUEST_ENTRIES_KEY)
@@ -365,13 +378,28 @@ export default function App() {
 
       if (!session?.user) return false
 
-      const { data, error } = await supabase
-        .from('entries')
-        .update({ ai_feedback: generatedText })
-        .eq('user_id', session.user.id)
-        .eq('id', newEntryId)
-        .select('id, ai_feedback')
-        .maybeSingle()
+      const updateAiFeedback = async (content) =>
+        supabase
+          .from('entries')
+          .update({ ai_feedback: content })
+          .eq('user_id', session.user.id)
+          .eq('id', newEntryId)
+          .select('id, ai_feedback')
+          .maybeSingle()
+
+      let feedbackToSave = generatedText
+      let updateResult = await updateAiFeedback(feedbackToSave)
+      let retryCount = 0
+
+      while (updateResult.error && isAiFeedbackTooLongError(updateResult.error) && retryCount < 4) {
+        const shrunk = shrinkAiFeedback(feedbackToSave)
+        if (!shrunk || shrunk === feedbackToSave) break
+        feedbackToSave = shrunk
+        retryCount += 1
+        updateResult = await updateAiFeedback(feedbackToSave)
+      }
+
+      const { data, error } = updateResult
 
       if (error) {
         console.error('AI feedback update failed:', error)
@@ -387,7 +415,7 @@ export default function App() {
       }
 
       setEntries((prev) =>
-        prev.map((entry) => (String(entry.id) === String(newEntryId) ? { ...entry, ai_feedback: generatedText } : entry)),
+        prev.map((entry) => (String(entry.id) === String(newEntryId) ? { ...entry, ai_feedback: feedbackToSave } : entry)),
       )
       removePendingAiTask(newEntryId)
       void fetchCloudEntries()
