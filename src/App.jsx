@@ -32,6 +32,7 @@ function rowToEntry(row) {
 
 const GUEST_ENTRIES_KEY = 'guest_entries'
 const PENDING_AI_TASKS_KEY = 'pending_ai_tasks'
+const AI_FEEDBACK_OVERRIDES_KEY = 'ai_feedback_overrides'
 const AI_REQUEST_TIMEOUT_MS = 45000
 const MIN_AI_FEEDBACK_CHARS = 60
 
@@ -77,6 +78,73 @@ function readPendingAiTasks() {
 
 function writePendingAiTasks(tasks) {
   localStorage.setItem(PENDING_AI_TASKS_KEY, JSON.stringify(tasks))
+}
+
+function readAiFeedbackOverrides() {
+  const raw = localStorage.getItem(AI_FEEDBACK_OVERRIDES_KEY)
+  if (!raw) return {}
+
+  try {
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeAiFeedbackOverrides(overrides) {
+  localStorage.setItem(AI_FEEDBACK_OVERRIDES_KEY, JSON.stringify(overrides))
+}
+
+function setAiFeedbackOverride(entryId, aiFeedback) {
+  if (!entryId) return
+  const normalized = typeof aiFeedback === 'string' ? aiFeedback.trim() : ''
+  if (!normalized) return
+  const overrides = readAiFeedbackOverrides()
+  overrides[String(entryId)] = normalized
+  writeAiFeedbackOverrides(overrides)
+}
+
+function removeAiFeedbackOverride(entryId) {
+  if (!entryId) return
+  const key = String(entryId)
+  const overrides = readAiFeedbackOverrides()
+  if (!(key in overrides)) return
+  delete overrides[key]
+  writeAiFeedbackOverrides(overrides)
+}
+
+function applyAiFeedbackOverrides(entries) {
+  const overrides = readAiFeedbackOverrides()
+  if (!entries?.length || !Object.keys(overrides).length) return entries
+
+  return entries.map((entry) => {
+    const key = String(entry.id)
+    const overrideValue = overrides[key]
+    const cloudValue = typeof entry.ai_feedback === 'string' ? entry.ai_feedback.trim() : ''
+    if (typeof overrideValue === 'string' && overrideValue.trim() && !cloudValue) {
+      return { ...entry, ai_feedback: overrideValue }
+    }
+    return entry
+  })
+}
+
+function cleanupSyncedAiFeedbackOverrides(entries) {
+  if (!entries?.length) return
+  const overrides = readAiFeedbackOverrides()
+  if (!Object.keys(overrides).length) return
+
+  let changed = false
+  for (const entry of entries) {
+    const key = String(entry.id)
+    const cloudValue = typeof entry.ai_feedback === 'string' ? entry.ai_feedback.trim() : ''
+    if (cloudValue && overrides[key]) {
+      delete overrides[key]
+      changed = true
+    }
+  }
+
+  if (changed) writeAiFeedbackOverrides(overrides)
 }
 
 function getTabFromPath(pathname) {
@@ -145,7 +213,25 @@ async function requestAiFeedback({ score, emotionLabel, text }) {
 
     const json = await response.json()
     const content = json?.choices?.[0]?.message?.content
-    const normalized = typeof content === 'string' ? content.trim() : ''
+    let normalized = ''
+    if (typeof content === 'string') {
+      normalized = content.trim()
+    } else if (Array.isArray(content)) {
+      normalized = content
+        .map((item) => {
+          if (typeof item === 'string') return item
+          if (item && typeof item === 'object' && typeof item.text === 'string') return item.text
+          return ''
+        })
+        .join('')
+        .trim()
+    }
+
+    if (!normalized) {
+      const fallbackContent = json?.choices?.[0]?.message?.reasoning_content
+      normalized = typeof fallbackContent === 'string' ? fallbackContent.trim() : ''
+    }
+
     if (!normalized) {
       console.error('AI feedback response was empty:', json)
     }
@@ -204,7 +290,9 @@ export default function App() {
       return false
     }
 
-    setEntries((data ?? []).map(rowToEntry))
+    const mappedEntries = (data ?? []).map(rowToEntry)
+    cleanupSyncedAiFeedbackOverrides(mappedEntries)
+    setEntries(applyAiFeedbackOverrides(mappedEntries))
     if (showSuccessToast) showToast('云端同步完成')
     return true
   }
@@ -231,7 +319,9 @@ export default function App() {
         return
       }
 
-      setEntries((data ?? []).map(rowToEntry))
+      const mappedEntries = (data ?? []).map(rowToEntry)
+      cleanupSyncedAiFeedbackOverrides(mappedEntries)
+      setEntries(applyAiFeedbackOverrides(mappedEntries))
     }
 
     fetchCloudEntries()
@@ -403,7 +493,12 @@ export default function App() {
 
       if (error) {
         console.error('AI feedback update failed:', error)
-        return false
+        setAiFeedbackOverride(newEntryId, feedbackToSave)
+        setEntries((prev) =>
+          prev.map((entry) => (String(entry.id) === String(newEntryId) ? { ...entry, ai_feedback: feedbackToSave } : entry)),
+        )
+        removePendingAiTask(newEntryId)
+        return true
       }
 
       if (!data) {
@@ -411,9 +506,15 @@ export default function App() {
           entryId: newEntryId,
           userId: session.user.id,
         })
-        return false
+        setAiFeedbackOverride(newEntryId, feedbackToSave)
+        setEntries((prev) =>
+          prev.map((entry) => (String(entry.id) === String(newEntryId) ? { ...entry, ai_feedback: feedbackToSave } : entry)),
+        )
+        removePendingAiTask(newEntryId)
+        return true
       }
 
+      removeAiFeedbackOverride(newEntryId)
       setEntries((prev) =>
         prev.map((entry) => (String(entry.id) === String(newEntryId) ? { ...entry, ai_feedback: feedbackToSave } : entry)),
       )
