@@ -254,7 +254,7 @@ export default function HistoryPageModern({
                           <img
                             src={entry.image}
                             alt="心情图片"
-                            className="mt-3 w-full max-h-72 rounded-xl object-cover cursor-pointer hover:opacity-90"
+                            className="mt-3 h-28 w-28 rounded-lg object-cover cursor-pointer hover:opacity-90"
                             onClick={(event) => {
                               event.stopPropagation()
                               setSelectedImage(entry.image)

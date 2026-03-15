@@ -135,7 +135,7 @@ export default function DayListPage({ entries, onToggleFavorite, onDeleteEntry }
                     <img
                       src={entry.image}
                       alt="日记图片"
-                      className="mt-3 w-full max-h-72 rounded-xl object-cover cursor-pointer hover:opacity-90"
+                      className="mt-3 h-28 w-28 rounded-lg object-cover cursor-pointer hover:opacity-90"
                       onClick={(event) => {
                         event.stopPropagation()
                         setSelectedImage(entry.image)

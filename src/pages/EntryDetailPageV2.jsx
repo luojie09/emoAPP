@@ -66,7 +66,7 @@ export default function EntryDetailPageV2({ entries }) {
               <img
                 src={entry.image}
                 alt="日记配图"
-                className="w-full rounded-xl object-cover cursor-pointer"
+                className="w-full h-auto rounded-xl object-contain cursor-pointer"
                 onClick={() => setSelectedImage(entry.image)}
               />
             </div>
