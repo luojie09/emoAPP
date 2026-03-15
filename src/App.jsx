@@ -378,6 +378,35 @@ export default function App() {
   }
 
   useEffect(() => {
+    if (!Array.isArray(entries) || !entries.length) return
+
+    const existingTasks = readPendingAiTasks()
+    const queuedIds = new Set(existingTasks.map((item) => String(item.entryId)))
+    const nextTasks = [...existingTasks]
+
+    for (const entry of entries) {
+      const noteText = typeof entry?.note === 'string' ? entry.note.trim() : ''
+      const replyText = typeof entry?.ai_feedback === 'string' ? entry.ai_feedback.trim() : ''
+      if (!noteText || replyText) continue
+
+      const entryId = String(entry.id)
+      if (queuedIds.has(entryId)) continue
+
+      queuedIds.add(entryId)
+      nextTasks.push({
+        entryId: entry.id,
+        text: noteText,
+        score: Number(entry?.emotion?.score ?? entry?.score ?? 3),
+        emotionLabel: entry?.emotion?.label ?? entry?.mood ?? '',
+      })
+    }
+
+    if (nextTasks.length !== existingTasks.length) {
+      writePendingAiTasks(nextTasks)
+    }
+  }, [entries])
+
+  useEffect(() => {
     const processPendingAiTasks = async () => {
       if (pendingAiProcessorRef.current) return
       const tasks = readPendingAiTasks()
