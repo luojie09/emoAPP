@@ -2,7 +2,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-
 import { useEffect, useMemo, useState } from 'react'
 import AppLayout from './components/AppLayout'
 import Toast from './components/Toast'
-import AddEntryPage from './pages/AddEntryPage'
+import AddEntryPage from './pages/AddEntryPageModern'
 import AuthPage from './pages/AuthPage'
 import EntryDetailPage from './pages/EntryDetailPage'
 import HistoryPage from './pages/HistoryPageModern'
@@ -218,6 +218,7 @@ export default function App() {
         text: entry.note,
         image_url: entry.image,
         is_favorite: entry.isFavorite,
+        ai_feedback: entry.ai_feedback ?? null,
         created_at: dateTimeIso,
       })
       .select('id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback')
