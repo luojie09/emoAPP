@@ -7,7 +7,7 @@ import AuthPage from './pages/AuthPage'
 import DayListPage from './pages/DayListPage'
 import EntryDetailPage from './pages/EntryDetailPageV2'
 import HistoryPage from './pages/HistoryPageV2'
-import ProfilePage from './pages/ProfilePage'
+import ProfilePage from './pages/ProfilePageV2'
 import TodayPage from './pages/TodayPageV2'
 import { groupEntriesByDay, readEntries } from './utils'
 import { supabase } from './supabaseClient'
@@ -35,6 +35,13 @@ const PENDING_AI_TASKS_KEY = 'pending_ai_tasks'
 const AI_FEEDBACK_OVERRIDES_KEY = 'ai_feedback_overrides'
 const AI_REQUEST_TIMEOUT_MS = 45000
 const MIN_AI_FEEDBACK_CHARS = 60
+
+function normalizeUserProfile(profile) {
+  return {
+    nickname: typeof profile?.nickname === 'string' ? profile.nickname.trim() : '',
+    avatar_url: typeof profile?.avatar_url === 'string' ? profile.avatar_url : '',
+  }
+}
 
 function isAiFeedbackTooLongError(error) {
   const raw = `${error?.message ?? ''} ${error?.details ?? ''} ${error?.hint ?? ''} ${error?.code ?? ''}`.toLowerCase()
@@ -178,22 +185,21 @@ function extractAiText(payload) {
   return normalized || null
 }
 
-async function requestAiFeedback({ score, emotionLabel, text }) {
-  const lengthInstruction =
-    score >= 4
-      ? '字数控制在 150 到 200 字左右，简短轻快。'
-      : '字数控制在 300 到 500 字左右，给予充足的心理抚慰和深度共情。'
+async function requestAiFeedback({ score, emotionLabel, text, userName }) {
+  const safeUserName = userName || '朋友'
+  const systemPrompt = `你是一个名为“时光树洞”的专属情绪陪伴者。你的任务是阅读用户的日记，并给予一封温暖、极具共情力且富有智慧的回信。
 
-  const systemPrompt = `你是一个名为“时光树洞”的专属情绪陪伴者。你的任务是阅读用户的日记，并给予温暖、极具共情力的回音。
+【强制称呼设定】
+当前与你对话的用户昵称是：“${safeUserName}”。
+请务必在回信的第一句话，严格使用“亲爱的${safeUserName}：”作为开头。
+
 【核心规则】
-1. 紧扣细节：必须在回复中自然提取或呼应用户日记里的具体细节，让用户确信你认真阅读了。
-2. 情感同频：
-   - 面对高分（4-5分）：做快乐放大器，肯定他们的小确幸。
-   - 面对平淡（3分）：做安静的陪伴者，认可日常的平静。
-   - 面对低分（1-2分）：做情绪的安全网。接纳情绪，不要说教，给予语言上的拥抱和深度开导。
-3. 语气与口吻：像一个极其懂他的老朋友，温柔、真诚、克制。
-4. 信件格式：请用一封短笺的方式来写，第一句固定写“亲爱的原子：”，后文自然延续，不要重复称呼。
-5. 格式与篇幅：${lengthInstruction} 务必适当分段（每段不要太长），保持排版的呼吸感。结尾可以自然地带一个温暖的 emoji（如 ?, ??, ?, ??）。`
+1. 润物无声的呼应（极其重要）：绝对不要像做阅读理解一样大段复述、总结或引用用户的原话！请用“默契老友”的视角，极其轻巧、自然地提及日记里的细节。营造出“心领神会”的默契感，拒绝做内容摘要。
+2. 叙事疗法与哲理升华（点睛之笔）：
+   - 拒绝干巴巴的大道理。在合适的时候，请以“分享”的姿态，自然地引入一句恰当的中外古诗词、文学大家的名言；或者讲述一个简短、有内涵的中外传说与寓言故事来作为隐喻。
+   - 引用必须极其贴切自然，绝不能生搬硬套或显得幼稚。要通过优美的意象或故事去启发用户，让他们自己找到内心的平静。
+3. 语气与口吻：使用第一人称（我）与第二人称（你）对话。语言要像散文诗一样温柔、真诚、克制，带有淡淡的治愈感。如果需要给出建议，必须是“启发式”和“探讨式”的，绝对不能居高临下或带有“爹味”。
+4. 格式与篇幅：字数严格控制在 300 到 500 字之间（根据情绪深度自行把控）。绝对不要使用任何列表（如 1. 2. 3.）或小标题。务必适当分段（每段 2-3 句话即可），保持排版的高度呼吸感。结尾自然地带一个温暖的 emoji（如 ✨, 🫂, ☕, 🍃, 🦋）。`
 
   const userPrompt = `【今日心情】：${score}分\n【情绪标签】：${emotionLabel || '无'}\n【日记正文】：${text}`
   const body = {
@@ -239,6 +245,7 @@ export default function App() {
   const navigate = useNavigate()
   const pendingAiProcessorRef = useRef(false)
   const [entries, setEntries] = useState([])
+  const [userProfile, setUserProfile] = useState(null)
   const [toastMessage, setToastMessage] = useState('')
   const [session, setSession] = useState(null)
   const [isGuest, setIsGuest] = useState(false)
@@ -266,6 +273,38 @@ export default function App() {
   useEffect(() => {
     setCurrentTab(getTabFromPath(location.pathname))
   }, [location.pathname])
+
+  useEffect(() => {
+    if (isGuest || !session?.user?.id) {
+      setUserProfile(null)
+      return
+    }
+
+    let isMounted = true
+
+    const loadUserProfile = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('nickname,avatar_url')
+          .eq('id', session.user.id)
+          .maybeSingle()
+
+        if (error) throw error
+        if (!isMounted) return
+        setUserProfile(normalizeUserProfile(data))
+      } catch (error) {
+        console.error('load profile failed:', error)
+        if (isMounted) setUserProfile(normalizeUserProfile(null))
+      }
+    }
+
+    void loadUserProfile()
+
+    return () => {
+      isMounted = false
+    }
+  }, [session?.user?.id, isGuest])
 
   const fetchCloudEntries = async (showSuccessToast = false) => {
     if (!session) return false
@@ -433,10 +472,30 @@ export default function App() {
         return false
       }
 
+      let resolvedUserName = userProfile?.nickname?.trim() || ''
+
+      if (!resolvedUserName && !isGuest && session?.user?.id) {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('nickname,avatar_url')
+            .eq('id', session.user.id)
+            .maybeSingle()
+          if (!error) {
+            const normalizedProfile = normalizeUserProfile(data)
+            resolvedUserName = normalizedProfile.nickname
+            setUserProfile(normalizedProfile)
+          }
+        } catch (error) {
+          console.error('read profile before ai failed:', error)
+        }
+      }
+
       const generatedText = await requestAiFeedback({
         score: Number(score ?? 3),
         emotionLabel,
         text: normalizedText,
+        userName: resolvedUserName || '朋友',
       })
       if (!generatedText) return false
 
@@ -715,6 +774,8 @@ export default function App() {
                   session={session}
                   isGuest={isGuest}
                   entries={entries}
+                  userProfile={userProfile}
+                  onProfileSaved={setUserProfile}
                   onLogout={handleLogout}
                   onLogin={handleGoToLogin}
                   onImportEntries={handleImportEntries}
