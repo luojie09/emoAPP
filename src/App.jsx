@@ -693,7 +693,6 @@ export default function App() {
                 <TodayPage
                   entries={entries}
                   onToggleFavorite={handleToggleFavorite}
-                  onLogout={handleLogout}
                   onDeleteEntry={handleDeleteEntry}
                 />
               }
