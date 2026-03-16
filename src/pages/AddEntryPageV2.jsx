@@ -17,9 +17,9 @@ const EMOJI_LIST = [
   { emoji: '😭', score: 1, label: '大哭' }, { emoji: '😡', score: 1, label: '愤怒' }, { emoji: '🤬', score: 1, label: '咒骂' }, { emoji: '🤯', score: 1, label: '爆炸' }, { emoji: '😱', score: 1, label: '惊恐' }, { emoji: '🤢', score: 1, label: '恶心' }, { emoji: '🤮', score: 1, label: '呕吐' }, { emoji: '😫', score: 1, label: '疲惫' }, { emoji: '😩', score: 1, label: '崩溃' }, { emoji: '😾', score: 1, label: '生气猫' },
 ]
 
-function toDateTimeLocalValue(date) {
+function toTimeInputValue(date) {
   const pad = (value) => String(value).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
 function cleanEnvValue(value) {
@@ -122,7 +122,8 @@ export default function AddEntryPageV2({ onSave, onQueueAiTask, onToast, onGener
   const [note, setNote] = useState('')
   const [image, setImage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
-  const [selectedDateTime, setSelectedDateTime] = useState(() => toDateTimeLocalValue(new Date()))
+  const [selectedDate, setSelectedDate] = useState(() => getLocalDateTimeParts(new Date()).localDate || getTodayKey())
+  const [selectedTime, setSelectedTime] = useState(() => toTimeInputValue(new Date()))
 
   const handlePickImage = () => imageInputRef.current?.click()
 
@@ -166,7 +167,9 @@ export default function AddEntryPageV2({ onSave, onQueueAiTask, onToast, onGener
       if (!capturedAt || Number.isNaN(capturedAt.getTime())) return
       const diffMs = Date.now() - capturedAt.getTime()
       if (diffMs <= 60 * 60 * 1000 || diffMs < 0) return
-      setSelectedDateTime(toDateTimeLocalValue(capturedAt))
+      const { localDate, localTime } = getLocalDateTimeParts(capturedAt)
+      if (localDate) setSelectedDate(localDate)
+      if (localTime) setSelectedTime(localTime)
     } catch {
       // Ignore EXIF parse failures for images without metadata.
     }
@@ -177,14 +180,16 @@ export default function AddEntryPageV2({ onSave, onQueueAiTask, onToast, onGener
     setIsSaving(true)
 
     const text = note.trim()
-    const selected = selectedDateTime ? new Date(selectedDateTime) : new Date()
+    const safeDate = typeof selectedDate === 'string' && selectedDate ? selectedDate : getTodayKey()
+    const safeTime = typeof selectedTime === 'string' && selectedTime ? selectedTime : toTimeInputValue(new Date())
+    const selected = new Date(`${safeDate}T${safeTime}:00`)
     const validDate = Number.isNaN(selected.getTime()) ? new Date() : selected
     const { localDate, localTime } = getLocalDateTimeParts(validDate)
 
     const entry = {
       id: `${Date.now()}`,
-      date: localDate || getTodayKey(),
-      time: localTime,
+      date: localDate || safeDate || getTodayKey(),
+      time: localTime || safeTime,
       emotion,
       score: emotion.score,
       mood: emotion.label,
@@ -228,7 +233,10 @@ export default function AddEntryPageV2({ onSave, onQueueAiTask, onToast, onGener
     setNote('')
     setImage('')
     setIsPickerOpen(false)
-    setSelectedDateTime(toDateTimeLocalValue(new Date()))
+    const now = new Date()
+    const { localDate: nowDate, localTime: nowTime } = getLocalDateTimeParts(now)
+    setSelectedDate(nowDate || getTodayKey())
+    setSelectedTime(nowTime || toTimeInputValue(now))
     setIsSaving(false)
     navigate('/')
   }
@@ -288,11 +296,12 @@ export default function AddEntryPageV2({ onSave, onQueueAiTask, onToast, onGener
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-sm">
+        <label className="text-sm font-medium text-gray-600">记录时间</label>
         <input
-          type="datetime-local"
-          value={selectedDateTime}
-          onChange={(event) => setSelectedDateTime(event.target.value)}
-          className="w-full rounded-xl border border-gray-100 bg-white px-3 py-3 text-sm text-gray-700 focus:outline-none"
+          type="time"
+          value={selectedTime}
+          onChange={(event) => setSelectedTime(event.target.value)}
+          className="mt-2 w-full appearance-none rounded-xl border-0 bg-gray-50 px-4 py-3 text-base text-gray-700 ring-1 ring-gray-100 outline-none focus:ring-2 focus:ring-blue-200"
         />
       </div>
 
