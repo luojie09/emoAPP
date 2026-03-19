@@ -1,26 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CalendarClock, Sparkles, Star } from 'lucide-react'
+import { CalendarClock } from 'lucide-react'
+import EntryCard from '../components/EntryCard'
 import ImageModal from '../components/ImageModal'
-
-const moodColors = {
-  5: '#34C759',
-  4: '#5AC8FA',
-  3: '#FFCC00',
-  2: '#FF9500',
-  1: '#FF3B30',
-}
-
-function pad2(value) {
-  return String(value).padStart(2, '0')
-}
-
-function getEmojiContainerStyle(color) {
-  return {
-    backgroundColor: `${color}0D`,
-    borderColor: `${color}18`,
-  }
-}
 
 function parseEntryDate(entry) {
   if (!entry) return null
@@ -42,101 +24,10 @@ function parseEntryDate(entry) {
   return Number.isNaN(fallbackDate.getTime()) ? null : fallbackDate
 }
 
-function formatEntryTimestamp(entry) {
-  const date = parseEntryDate(entry)
-  if (!date) return '时间未知'
-
-  return `${date.getFullYear()}年${pad2(date.getMonth() + 1)}月${pad2(date.getDate())}日 ${pad2(date.getHours())}:${pad2(date.getMinutes())}`
-}
-
 function formatVisibleMonth(entry) {
   const date = parseEntryDate(entry)
   if (!date) return '未知时间'
   return `${date.getFullYear()}年${date.getMonth() + 1}月`
-}
-
-function HistoryEntryCard({
-  entry,
-  onToggleFavorite,
-  onOpenImage,
-  onCardClick,
-  onStartLongPress,
-  onClearLongPress,
-}) {
-  const moodScore = Number(entry?.emotion?.score ?? entry?.score ?? 3)
-  const moodColor = moodColors[moodScore] ?? '#8E8E93'
-  const moodEmoji = entry?.emotion?.emoji ?? '🙂'
-  const moodLabel = entry?.emotion?.label ?? entry?.mood ?? '心情记录'
-  const noteText = typeof entry?.note === 'string' && entry.note.trim() ? entry.note : '（暂无内容）'
-  const imageUrl = typeof entry?.image === 'string' ? entry.image.trim() : ''
-
-  return (
-    <article
-      data-entry-id={entry.id}
-      data-month-label={formatVisibleMonth(entry)}
-      className="rounded-[22px] border border-white/70 bg-white/90 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-sm"
-      onClick={() => onCardClick?.(entry.id)}
-      onTouchStart={() => onStartLongPress?.(entry.id)}
-      onMouseDown={() => onStartLongPress?.(entry.id)}
-      onTouchEnd={onClearLongPress}
-      onMouseUp={onClearLongPress}
-      onMouseLeave={onClearLongPress}
-      onTouchMove={onClearLongPress}
-    >
-      <div className="px-4 py-4">
-        <div className="flex items-start gap-3">
-          <div
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-[22px] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]"
-            style={getEmojiContainerStyle(moodColor)}
-          >
-            {moodEmoji}
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="truncate text-[16px] font-semibold text-[#1d1d1f]">{moodLabel}</span>
-              {entry?.ai_feedback ? <Sparkles size={14} className="shrink-0 text-[#FF9500]" /> : null}
-            </div>
-            <p className="mt-1 text-[13px] text-[#8e8e93]">{formatEntryTimestamp(entry)}</p>
-          </div>
-
-          <button
-            onClick={(event) => {
-              event.stopPropagation()
-              onToggleFavorite?.(entry.id)
-            }}
-            onMouseDown={(event) => event.stopPropagation()}
-            onTouchStart={(event) => event.stopPropagation()}
-            className="ml-2 shrink-0 rounded-xl p-2 transition-colors hover:bg-gray-50"
-            aria-label={entry?.isFavorite ? '取消收藏' : '加入收藏'}
-          >
-            <Star
-              size={20}
-              fill={entry?.isFavorite ? '#FFCC00' : 'none'}
-              stroke={entry?.isFavorite ? '#FFCC00' : '#C7C7CC'}
-              strokeWidth={2}
-            />
-          </button>
-        </div>
-
-        <p className="mt-3 text-[15px] leading-relaxed text-[#3c3c43] whitespace-pre-wrap">{noteText}</p>
-
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt="日记图片"
-            className="mt-3 h-28 w-28 rounded-lg object-cover cursor-pointer transition-opacity hover:opacity-90"
-            onClick={(event) => {
-              event.stopPropagation()
-              onOpenImage?.(imageUrl)
-            }}
-            onMouseDown={(event) => event.stopPropagation()}
-            onTouchStart={(event) => event.stopPropagation()}
-          />
-        ) : null}
-      </div>
-    </article>
-  )
 }
 
 export default function HistoryPageV2({ entries, onToggleFavorite, onDeleteEntry }) {
@@ -299,7 +190,7 @@ export default function HistoryPageV2({ entries, onToggleFavorite, onDeleteEntry
                 if (!entry || !entry.id) return null
 
                 return (
-                  <HistoryEntryCard
+                  <EntryCard
                     key={entry.id}
                     entry={entry}
                     onToggleFavorite={onToggleFavorite}
