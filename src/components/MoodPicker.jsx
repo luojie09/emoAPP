@@ -1,6 +1,6 @@
 const moodCategories = [
   {
-    title: '狂喜与高光 (5分)',
+    title: '狂喜与高光',
     moods: [
       { emoji: '😄', label: '大笑', score: 5 },
       { emoji: '🤣', label: '笑得打滚', score: 5 },
@@ -12,7 +12,7 @@ const moodCategories = [
       { emoji: '😘', label: '飞吻', score: 5 },
       { emoji: '🤗', label: '抱抱', score: 5 },
       { emoji: '🥳', label: '聚会', score: 5 },
-      { emoji: '😎', label: '墨镜', score: 5 },
+      { emoji: '😎', label: '酷', score: 5 },
       { emoji: '🤑', label: '发财', score: 5 },
       { emoji: '😸', label: '大笑', score: 5 },
       { emoji: '😹', label: '笑哭', score: 5 },
@@ -20,7 +20,7 @@ const moodCategories = [
     ],
   },
   {
-    title: '开心与愉悦 (4分)',
+    title: '开心与愉悦',
     moods: [
       { emoji: '😀', label: '嘿嘿', score: 4 },
       { emoji: '😃', label: '哈哈', score: 4 },
@@ -37,13 +37,13 @@ const moodCategories = [
     ],
   },
   {
-    title: '平静与微丧 (2-3分)',
+    title: '平静与微丧',
     moods: [
       { emoji: '🙂', label: '呵呵', score: 3 },
       { emoji: '🙃', label: '倒脸', score: 3 },
       { emoji: '😅', label: '苦笑', score: 3 },
       { emoji: '🥲', label: '含泪微笑', score: 3 },
-      { emoji: '🤔', label: '想一想', score: 3 },
+      { emoji: '🤔', label: '思考', score: 3 },
       { emoji: '😐', label: '冷漠', score: 3 },
       { emoji: '😶', label: '沉默', score: 3 },
       { emoji: '😮‍💨', label: '呼气', score: 3 },
@@ -58,7 +58,7 @@ const moodCategories = [
     ],
   },
   {
-    title: '焦虑与痛苦 (1-2分)',
+    title: '焦虑与痛苦',
     moods: [
       { emoji: '😬', label: '龇牙咧嘴', score: 2 },
       { emoji: '🥵', label: '脸发烧', score: 2 },
@@ -96,7 +96,7 @@ export default function MoodPicker({ value, onSelect }) {
         </div>
 
         <div className="rounded-full bg-gray-50 px-3 py-1.5 text-sm text-gray-600">
-          {value?.emoji ? `${value.emoji} ${value.label} · ${value.score}分` : '请选择'}
+          {value?.emoji ? `${value.emoji} ${value.label}` : '请选择'}
         </div>
       </div>
 
@@ -114,14 +114,14 @@ export default function MoodPicker({ value, onSelect }) {
                     <button
                       key={`${category.title}-${mood.emoji}-${mood.label}`}
                       type="button"
-                      title={`${mood.label}（${mood.score}分）`}
+                      title={mood.label}
                       onClick={() => onSelect?.({ emoji: mood.emoji, label: mood.label, score: mood.score })}
                       className={`flex items-center justify-center rounded-xl px-2 py-3 text-2xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#77d6bd]/30 ${
                         isSelected ? 'bg-white shadow-sm ring-2 ring-[#77d6bd]/30' : 'hover:bg-white hover:shadow-sm'
                       }`}
                     >
                       <span aria-hidden="true">{mood.emoji}</span>
-                      <span className="sr-only">{`${mood.label} ${mood.score}分`}</span>
+                      <span className="sr-only">{mood.label}</span>
                     </button>
                   )
                 })}
