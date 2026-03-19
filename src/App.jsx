@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import AppLayout from './components/AppLayout'
 import Toast from './components/Toast'
-import AddEntryPage from './pages/AddEntryPageV2'
+import AddEntryPage from './pages/AddEntryPageV3'
 import AuthPage from './pages/AuthPage'
 import DayListPage from './pages/DayListPage'
 import EntryDetailPage from './pages/EntryDetailPageV2'
