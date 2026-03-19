@@ -15,6 +15,13 @@ function pad2(value) {
   return String(value).padStart(2, '0')
 }
 
+function getEmojiContainerStyle(color) {
+  return {
+    backgroundColor: `${color}0D`,
+    borderColor: `${color}18`,
+  }
+}
+
 function parseEntryDate(entry) {
   if (!entry) return null
 
@@ -79,8 +86,8 @@ function HistoryEntryCard({
       <div className="px-4 py-4">
         <div className="flex items-start gap-3">
           <div
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[22px]"
-            style={{ backgroundColor: `${moodColor}20` }}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-[22px] shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]"
+            style={getEmojiContainerStyle(moodColor)}
           >
             {moodEmoji}
           </div>
