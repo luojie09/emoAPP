@@ -253,8 +253,8 @@ export default function HistoryPageV2({ entries, onToggleFavorite, onDeleteEntry
   }, [])
 
   return (
-    <div className="flex h-[calc(100vh-8.5rem)] flex-col bg-[#f2f2f7]">
-      <div className="pb-4">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[#f2f2f7]">
+      <div className="shrink-0 pb-4">
         <div className="bg-gradient-to-b from-white to-[#f2f2f7] px-2 pt-2 pb-5">
           <h1 className="bg-gradient-to-r from-[#1d1d1f] to-[#86868b] bg-clip-text text-[34px] font-bold tracking-tight text-transparent">
             历史记录
@@ -291,10 +291,10 @@ export default function HistoryPageV2({ entries, onToggleFavorite, onDeleteEntry
         <div
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="h-full overflow-y-auto pr-1 pb-6"
+          className="h-full min-h-0 overflow-y-auto pr-1"
         >
           {visibleEntries.length ? (
-            <div className="space-y-3 pr-3">
+            <div className="space-y-3 pr-3 pb-28">
               {visibleEntries.map((entry) => {
                 if (!entry || !entry.id) return null
 
@@ -312,18 +312,20 @@ export default function HistoryPageV2({ entries, onToggleFavorite, onDeleteEntry
               })}
             </div>
           ) : (
-            <div className="mx-2 rounded-[24px] border border-white/70 bg-white/90 px-6 py-12 text-center shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#007AFF]/10 text-[#007AFF]">
-                <CalendarClock size={26} strokeWidth={2.1} />
+            <div className="px-2 pb-28">
+              <div className="rounded-[24px] border border-white/70 bg-white/90 px-6 py-12 text-center shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#007AFF]/10 text-[#007AFF]">
+                  <CalendarClock size={26} strokeWidth={2.1} />
+                </div>
+                <h2 className="mt-4 text-[18px] font-semibold text-[#1d1d1f]">
+                  {activeTab === 'starred' ? '还没有收藏的记录' : '还没有历史记录'}
+                </h2>
+                <p className="mt-2 text-[14px] leading-6 text-[#8e8e93]">
+                  {activeTab === 'starred'
+                    ? '看到想珍藏的心情时，点亮右上角的星标，它就会出现在这里。'
+                    : '当你写下新的日记后，它们会在这里按时间顺序慢慢铺开。'}
+                </p>
               </div>
-              <h2 className="mt-4 text-[18px] font-semibold text-[#1d1d1f]">
-                {activeTab === 'starred' ? '还没有收藏的记录' : '还没有历史记录'}
-              </h2>
-              <p className="mt-2 text-[14px] leading-6 text-[#8e8e93]">
-                {activeTab === 'starred'
-                  ? '看到想珍藏的心情时，点亮右上角的星标，它就会出现在这里。'
-                  : '当你写下新的日记后，它们会在这里按时间顺序慢慢铺开。'}
-              </p>
             </div>
           )}
         </div>
