@@ -2,15 +2,8 @@ import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, Sparkles, Star } from 'lucide-react'
 import ImageModal from '../components/ImageModal'
+import MoodAvatar from '../components/MoodAvatar'
 import { formatLocalMonthDay, getEntryLocalDateKey } from '../utils'
-
-const moodColors = {
-  5: '#34C759',
-  4: '#5AC8FA',
-  3: '#FFCC00',
-  2: '#FF9500',
-  1: '#FF3B30',
-}
 
 export default function DayListPage({ entries, onToggleFavorite, onDeleteEntry }) {
   const navigate = useNavigate()
@@ -75,9 +68,6 @@ export default function DayListPage({ entries, onToggleFavorite, onDeleteEntry }
         {dayEntries.length ? (
           <div className="space-y-3">
             {dayEntries.map((entry) => {
-              const moodScore = Number(entry?.emotion?.score ?? entry?.score ?? 3)
-              const moodColor = moodColors[moodScore] ?? '#8E8E93'
-
               return (
                 <div
                   key={entry.id}
@@ -92,12 +82,7 @@ export default function DayListPage({ entries, onToggleFavorite, onDeleteEntry }
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className="w-12 h-12 rounded-full flex items-center justify-center text-2xl flex-shrink-0"
-                        style={{ backgroundColor: `${moodColor}20` }}
-                      >
-                        {entry?.emotion?.emoji ?? '🙂'}
-                      </div>
+                      <MoodAvatar emoji={entry?.emotion?.emoji ?? '🙂'} className="h-12 w-12 shrink-0 text-2xl" />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-[17px] font-semibold truncate">

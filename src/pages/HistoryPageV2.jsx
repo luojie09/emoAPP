@@ -193,6 +193,7 @@ export default function HistoryPageV2({ entries, onToggleFavorite, onDeleteEntry
                   <EntryCard
                     key={entry.id}
                     entry={entry}
+                    monthLabel={formatVisibleMonth(entry)}
                     onToggleFavorite={onToggleFavorite}
                     onOpenImage={setSelectedImage}
                     onCardClick={handleCardClick}

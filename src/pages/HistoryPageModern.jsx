@@ -2,15 +2,8 @@ import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Calendar, ChevronRight, Sparkles, Star, TrendingUp } from 'lucide-react'
 import ImageModal from '../components/ImageModal'
+import MoodAvatar from '../components/MoodAvatar'
 import { formatLocalMonthDay, getEntryLocalDateKey } from '../utils'
-
-const moodColors = {
-  5: '#34C759',
-  4: '#5AC8FA',
-  3: '#FFCC00',
-  2: '#FF9500',
-  1: '#FF3B30',
-}
 
 function getMoodColor(average) {
   if (average >= 4.5) return 'from-emerald-500/10 to-green-600/5'
@@ -215,14 +208,11 @@ export default function HistoryPageModern({
       ) : (
         <div className="px-4 pt-2 pb-6">
           {starredEntries.length ? (
-            <div className="space-y-3">
-              {starredEntries.map((entry) => {
-                const moodScore = Number(entry?.emotion?.score ?? entry?.score ?? 3)
-                const moodColor = moodColors[moodScore] ?? '#8E8E93'
-
-                return (
-                  <div
-                    key={entry.id}
+          <div className="space-y-3">
+            {starredEntries.map((entry) => {
+              return (
+                <div
+                  key={entry.id}
                     className="bg-white rounded-[20px] shadow-sm"
                     onClick={() => handleCardClick(entry.id)}
                     onTouchStart={() => startLongPress(entry.id)}
@@ -231,14 +221,9 @@ export default function HistoryPageModern({
                     onMouseUp={clearLongPress}
                     onMouseLeave={clearLongPress}
                     onTouchMove={clearLongPress}
-                  >
-                    <div className="px-4 py-4 relative">
-                      <div
-                        className="w-12 h-12 rounded-full flex items-center justify-center text-2xl flex-shrink-0"
-                        style={{ backgroundColor: `${moodColor}20` }}
-                      >
-                        {entry?.emotion?.emoji ?? '🙂'}
-                      </div>
+                >
+                  <div className="px-4 py-4 relative">
+                      <MoodAvatar emoji={entry?.emotion?.emoji ?? '🙂'} className="h-12 w-12 shrink-0 text-2xl" />
 
                       <div className="min-w-0 mt-3">
                         <div className="flex items-center gap-2 mb-0.5">

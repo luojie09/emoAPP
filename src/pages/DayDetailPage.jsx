@@ -2,16 +2,9 @@ import { useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Star } from 'lucide-react'
 import ImageModal from '../components/ImageModal'
+import MoodAvatar from '../components/MoodAvatar'
 import TopBar from '../components/TopBar'
 import { formatDayLabel, getEntryLocalDateKey } from '../utils'
-
-const moodColors = {
-  5: '#34C759',
-  4: '#5AC8FA',
-  3: '#FFCC00',
-  2: '#FF9500',
-  1: '#FF3B30',
-}
 
 export default function DayDetailPage({ entries, onToggleFavorite, onDeleteEntry }) {
   const { date } = useParams()
@@ -48,9 +41,6 @@ export default function DayDetailPage({ entries, onToggleFavorite, onDeleteEntry
       {listRecords.length ? (
         <div className="space-y-3">
           {listRecords.map((entry) => {
-            const moodScore = Number(entry?.emotion?.score ?? entry?.score ?? 3)
-            const moodColor = moodColors[moodScore] ?? '#8E8E93'
-
             return (
               <div
                 key={entry.id}
@@ -63,12 +53,7 @@ export default function DayDetailPage({ entries, onToggleFavorite, onDeleteEntry
                 onTouchMove={clearLongPress}
               >
                 <div className="px-4 py-4 flex items-start gap-3">
-                  <div
-                    className="w-12 h-12 rounded-full flex items-center justify-center text-2xl flex-shrink-0"
-                    style={{ backgroundColor: `${moodColor}20` }}
-                  >
-                    {entry?.emotion?.emoji ?? '🙂'}
-                  </div>
+                  <MoodAvatar emoji={entry?.emotion?.emoji ?? '🙂'} className="h-12 w-12 shrink-0 text-2xl" />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">

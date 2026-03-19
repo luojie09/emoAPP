@@ -2,14 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, Sparkles } from 'lucide-react'
 import ImageModal from '../components/ImageModal'
-
-const moodBackground = {
-  5: 'bg-gradient-to-br from-green-100 to-emerald-100',
-  4: 'bg-gradient-to-br from-blue-100 to-sky-100',
-  3: 'bg-gradient-to-br from-yellow-100 to-amber-100',
-  2: 'bg-gradient-to-br from-orange-100 to-amber-100',
-  1: 'bg-gradient-to-br from-red-100 to-rose-100',
-}
+import MoodAvatar from '../components/MoodAvatar'
 
 export default function EntryDetailPage({ entries }) {
   const navigate = useNavigate()
@@ -17,8 +10,6 @@ export default function EntryDetailPage({ entries }) {
   const [selectedImage, setSelectedImage] = useState(null)
 
   const entry = useMemo(() => (entries ?? []).find((item) => String(item.id) === String(id)), [entries, id])
-  const moodScore = Number(entry?.emotion?.score ?? entry?.score ?? 3)
-  const moodCardBg = moodBackground[moodScore] ?? moodBackground[3]
   const displayTime = entry ? `${entry.date} ${entry.time}` : ''
   const aiText = typeof entry?.ai_feedback === 'string' ? entry.ai_feedback.trim() : ''
 
@@ -53,7 +44,7 @@ export default function EntryDetailPage({ entries }) {
       <div className="px-4 mt-4">
         <div className="bg-white rounded-[20px] shadow-[0_2px_10px_rgba(0,0,0,0.02)] p-5">
           <div className="flex items-center gap-3 mb-4">
-            <div className={`w-12 h-12 ${moodCardBg} rounded-full flex items-center justify-center text-2xl`}>{entry?.emotion?.emoji ?? '🙂'}</div>
+            <MoodAvatar emoji={entry?.emotion?.emoji ?? '🙂'} className="h-12 w-12 text-2xl" />
             <span className="text-[18px] font-semibold text-black">{entry?.emotion?.label ?? entry?.mood ?? '心情'}</span>
           </div>
 

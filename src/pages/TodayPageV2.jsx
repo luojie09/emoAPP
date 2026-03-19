@@ -3,14 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, Sparkles, Star } from 'lucide-react'
 import { Area, AreaChart, ResponsiveContainer, YAxis } from 'recharts'
 import ImageModal from '../components/ImageModal'
-
-const moodColors = {
-  5: '#34C759',
-  4: '#5AC8FA',
-  3: '#FFCC00',
-  2: '#FF9500',
-  1: '#FF3B30',
-}
+import MoodAvatar from '../components/MoodAvatar'
 
 function getTodayKey() {
   const now = new Date()
@@ -136,9 +129,6 @@ export default function TodayPageV2({ entries, onToggleFavorite, onDeleteEntry }
         {todayRecords.length ? (
           <div className="space-y-3">
             {todayRecords.map((entry) => {
-              const moodScore = Number(entry?.emotion?.score ?? entry?.score ?? 3)
-              const moodColor = moodColors[moodScore] ?? '#8E8E93'
-
               return (
                 <div
                   key={entry.id}
@@ -153,12 +143,7 @@ export default function TodayPageV2({ entries, onToggleFavorite, onDeleteEntry }
                 >
                   <div className="px-4 py-4">
                     <div className="flex items-center gap-3 mb-3">
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-xl bg-gray-100 flex-shrink-0"
-                        style={{ backgroundColor: `${moodColor}20` }}
-                      >
-                        {entry?.emotion?.emoji ?? '🙂'}
-                      </div>
+                      <MoodAvatar emoji={entry?.emotion?.emoji ?? '🙂'} className="h-10 w-10 shrink-0 text-xl" />
                       <span className="text-[16px] font-medium text-black whitespace-nowrap">
                         {entry?.emotion?.label ?? entry?.mood ?? '心情'}
                       </span>

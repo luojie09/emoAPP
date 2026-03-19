@@ -1,4 +1,5 @@
 import { Sparkles, Star } from 'lucide-react'
+import MoodAvatar from './MoodAvatar'
 
 function formatEntryTimestamp(entry) {
   const rawCreatedAt = entry?.created_at ?? entry?.createdAt
@@ -24,6 +25,7 @@ export default function EntryCard({
   onCardClick,
   onStartLongPress,
   onClearLongPress,
+  monthLabel,
 }) {
   const moodEmoji = entry?.emotion?.emoji ?? '🙂'
   const moodLabel = entry?.emotion?.label ?? entry?.mood ?? '心情记录'
@@ -33,6 +35,7 @@ export default function EntryCard({
   return (
     <article
       data-entry-id={entry?.id}
+      data-month-label={monthLabel ?? ''}
       className="rounded-[22px] border border-white/70 bg-white/90 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-sm"
       onClick={() => onCardClick?.(entry?.id)}
       onTouchStart={() => onStartLongPress?.(entry?.id)}
@@ -44,9 +47,7 @@ export default function EntryCard({
     >
       <div className="px-4 py-4">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sky-100 bg-transparent text-[22px]">
-            {moodEmoji}
-          </div>
+          <MoodAvatar emoji={moodEmoji} className="h-10 w-10 shrink-0 text-[22px]" />
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
