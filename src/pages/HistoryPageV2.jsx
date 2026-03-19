@@ -1,8 +1,7 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, ChevronRight, Sparkles, Star, TrendingUp } from 'lucide-react'
+import { CalendarClock, Sparkles, Star } from 'lucide-react'
 import ImageModal from '../components/ImageModal'
-import { formatLocalMonthDay, getEntryLocalDateKey } from '../utils'
 
 const moodColors = {
   5: '#34C759',
@@ -12,88 +11,161 @@ const moodColors = {
   1: '#FF3B30',
 }
 
-function getMoodColor(average) {
-  if (average >= 4.5) return 'from-emerald-500/10 to-green-600/5'
-  if (average >= 3.5) return 'from-sky-500/10 to-blue-600/5'
-  if (average >= 2.5) return 'from-amber-500/10 to-yellow-600/5'
-  return 'from-orange-500/10 to-red-600/5'
+function pad2(value) {
+  return String(value).padStart(2, '0')
 }
 
-function getMoodEmoji(average) {
-  if (average >= 4.5) return '😊'
-  if (average >= 3.5) return '😌'
-  if (average >= 2.5) return '😐'
-  return '😔'
+function parseEntryDate(entry) {
+  if (!entry) return null
+
+  const rawCreatedAt = entry?.created_at ?? entry?.createdAt
+  if (rawCreatedAt) {
+    const createdAtDate = new Date(rawCreatedAt)
+    if (!Number.isNaN(createdAtDate.getTime())) return createdAtDate
+  }
+
+  const rawDate = typeof entry?.date === 'string' ? entry.date : ''
+  const rawTime = typeof entry?.time === 'string' ? entry.time : '00:00'
+  if (!rawDate) return null
+
+  const combined = new Date(`${rawDate}T${rawTime}:00`)
+  if (!Number.isNaN(combined.getTime())) return combined
+
+  const fallbackDate = new Date(rawDate)
+  return Number.isNaN(fallbackDate.getTime()) ? null : fallbackDate
 }
 
-function getTrendIcon(trend) {
-  if (trend === 'up') return <span className="text-green-500">↗</span>
-  if (trend === 'down') return <span className="text-red-500">↘</span>
-  return <span className="text-gray-400">→</span>
+function formatEntryTimestamp(entry) {
+  const date = parseEntryDate(entry)
+  if (!date) return '时间未知'
+
+  return `${date.getFullYear()}年${pad2(date.getMonth() + 1)}月${pad2(date.getDate())}日 ${pad2(date.getHours())}:${pad2(date.getMinutes())}`
+}
+
+function formatVisibleMonth(entry) {
+  const date = parseEntryDate(entry)
+  if (!date) return '未知时间'
+  return `${date.getFullYear()}年${date.getMonth() + 1}月`
+}
+
+function HistoryEntryCard({
+  entry,
+  onToggleFavorite,
+  onOpenImage,
+  onCardClick,
+  onStartLongPress,
+  onClearLongPress,
+}) {
+  const moodScore = Number(entry?.emotion?.score ?? entry?.score ?? 3)
+  const moodColor = moodColors[moodScore] ?? '#8E8E93'
+  const moodEmoji = entry?.emotion?.emoji ?? '🙂'
+  const moodLabel = entry?.emotion?.label ?? entry?.mood ?? '心情记录'
+  const noteText = typeof entry?.note === 'string' && entry.note.trim() ? entry.note : '（暂无内容）'
+  const imageUrl = typeof entry?.image === 'string' ? entry.image.trim() : ''
+
+  return (
+    <article
+      data-entry-id={entry.id}
+      data-month-label={formatVisibleMonth(entry)}
+      className="rounded-[22px] border border-white/70 bg-white/90 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-sm"
+      onClick={() => onCardClick?.(entry.id)}
+      onTouchStart={() => onStartLongPress?.(entry.id)}
+      onMouseDown={() => onStartLongPress?.(entry.id)}
+      onTouchEnd={onClearLongPress}
+      onMouseUp={onClearLongPress}
+      onMouseLeave={onClearLongPress}
+      onTouchMove={onClearLongPress}
+    >
+      <div className="px-4 py-4">
+        <div className="flex items-start gap-3">
+          <div
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[22px]"
+            style={{ backgroundColor: `${moodColor}20` }}
+          >
+            {moodEmoji}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="truncate text-[16px] font-semibold text-[#1d1d1f]">{moodLabel}</span>
+              {entry?.ai_feedback ? <Sparkles size={14} className="shrink-0 text-[#FF9500]" /> : null}
+            </div>
+            <p className="mt-1 text-[13px] text-[#8e8e93]">{formatEntryTimestamp(entry)}</p>
+          </div>
+
+          <button
+            onClick={(event) => {
+              event.stopPropagation()
+              onToggleFavorite?.(entry.id)
+            }}
+            onMouseDown={(event) => event.stopPropagation()}
+            onTouchStart={(event) => event.stopPropagation()}
+            className="ml-2 shrink-0 rounded-xl p-2 transition-colors hover:bg-gray-50"
+            aria-label={entry?.isFavorite ? '取消收藏' : '加入收藏'}
+          >
+            <Star
+              size={20}
+              fill={entry?.isFavorite ? '#FFCC00' : 'none'}
+              stroke={entry?.isFavorite ? '#FFCC00' : '#C7C7CC'}
+              strokeWidth={2}
+            />
+          </button>
+        </div>
+
+        <p className="mt-3 text-[15px] leading-relaxed text-[#3c3c43] whitespace-pre-wrap">{noteText}</p>
+
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt="日记图片"
+            className="mt-3 h-28 w-28 rounded-lg object-cover cursor-pointer transition-opacity hover:opacity-90"
+            onClick={(event) => {
+              event.stopPropagation()
+              onOpenImage?.(imageUrl)
+            }}
+            onMouseDown={(event) => event.stopPropagation()}
+            onTouchStart={(event) => event.stopPropagation()}
+          />
+        ) : null}
+      </div>
+    </article>
+  )
 }
 
 export default function HistoryPageV2({ entries, onToggleFavorite, onDeleteEntry }) {
   const navigate = useNavigate()
+  const scrollContainerRef = useRef(null)
   const longPressTimerRef = useRef(null)
+  const hideBubbleTimerRef = useRef(null)
+  const scrollRafRef = useRef(null)
   const longPressTriggeredRef = useRef(false)
   const [activeTab, setActiveTab] = useState('all')
   const [selectedImage, setSelectedImage] = useState(null)
+  const [isScrolling, setIsScrolling] = useState(false)
+  const [currentVisibleDate, setCurrentVisibleDate] = useState('')
 
-  const historyData = useMemo(() => {
-    const grouped = (entries ?? []).reduce((acc, entry) => {
-      const dateKey = getEntryLocalDateKey(entry)
-      const bucket = acc[dateKey] ?? []
-      bucket.push({ ...entry, date: dateKey })
-      acc[dateKey] = bucket
-      return acc
-    }, {})
-
-    const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a))
-    return sortedDates.map((date, index) => {
-      const records = [...grouped[date]].sort((a, b) => b.time.localeCompare(a.time))
-      const average = records.reduce((sum, item) => sum + Number(item?.emotion?.score ?? item?.score ?? 3), 0) / records.length
-
-      const prevDate = sortedDates[index + 1]
-      const prevRecords = prevDate ? grouped[prevDate] : null
-      const prevAverage = prevRecords
-        ? prevRecords.reduce((sum, item) => sum + Number(item?.emotion?.score ?? item?.score ?? 3), 0) / prevRecords.length
-        : null
-
-      let trend = 'stable'
-      if (prevAverage !== null) {
-        if (average > prevAverage) trend = 'up'
-        if (average < prevAverage) trend = 'down'
-      }
-
-      return {
-        id: date,
-        date,
-        count: records.length,
-        average: Number(average.toFixed(1)),
-        trend,
-      }
-    })
-  }, [entries])
-
-  const totalDays = historyData.length
-  const globalAverage = useMemo(() => {
-    if (!(entries ?? []).length) return 0
-    const total = entries.reduce((sum, entry) => sum + Number(entry?.emotion?.score ?? entry?.score ?? 3), 0)
-    return Number((total / entries.length).toFixed(1))
+  const sortedEntries = useMemo(() => {
+    return [...(entries ?? [])]
+      .filter((entry) => entry?.id)
+      .sort((left, right) => {
+        const leftTime = parseEntryDate(left)?.getTime() ?? 0
+        const rightTime = parseEntryDate(right)?.getTime() ?? 0
+        return rightTime - leftTime
+      })
   }, [entries])
 
   const starredEntries = useMemo(
-    () =>
-      (entries ?? [])
-        .filter((entry) => entry.isFavorite === true)
-        .sort((a, b) => new Date(`${b.date}T${b.time}`) - new Date(`${a.date}T${a.time}`)),
-    [entries],
+    () => sortedEntries.filter((entry) => entry?.isFavorite === true),
+    [sortedEntries],
   )
 
+  const visibleEntries = activeTab === 'starred' ? starredEntries : sortedEntries
+
   const clearLongPress = () => {
-    if (!longPressTimerRef.current) return
-    window.clearTimeout(longPressTimerRef.current)
-    longPressTimerRef.current = null
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
   }
 
   const startLongPress = (entryId) => {
@@ -112,187 +184,155 @@ export default function HistoryPageV2({ entries, onToggleFavorite, onDeleteEntry
       longPressTriggeredRef.current = false
       return
     }
+
     navigate(`/entry/${entryId}`)
   }
 
-  return (
-    <div className="min-h-screen bg-[#f2f2f7]">
-      <div className="bg-gradient-to-b from-white to-[#f2f2f7] px-6 pt-4 pb-5">
-        <h1 className="text-[34px] font-bold tracking-tight bg-gradient-to-r from-[#1d1d1f] to-[#86868b] bg-clip-text text-transparent">
-          历史
-        </h1>
-      </div>
+  const updateCurrentVisibleDate = () => {
+    const container = scrollContainerRef.current
+    if (!container) return
 
-      <div className="px-4 pt-3 pb-5 bg-gradient-to-b from-white/50 to-transparent">
-        <div className="bg-gradient-to-br from-gray-100 to-gray-200/50 rounded-[12px] p-1 flex shadow-inner">
-          <button
-            onClick={() => setActiveTab('all')}
-            className={`flex-1 py-2.5 px-4 rounded-[10px] text-[13px] font-semibold transition-all duration-200 ${
-              activeTab === 'all' ? 'bg-white text-black shadow-lg shadow-gray-300/50' : 'text-[#3c3c43]/70'
-            }`}
-          >
-            全部记录
-          </button>
-          <button
-            onClick={() => setActiveTab('starred')}
-            className={`flex-1 py-2.5 px-4 rounded-[10px] text-[13px] font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 ${
-              activeTab === 'starred' ? 'bg-white text-black shadow-lg shadow-gray-300/50' : 'text-[#3c3c43]/70'
-            }`}
-          >
-            <span className={activeTab === 'starred' ? 'text-[#FFCC00]' : 'opacity-60'}>⭐</span>
-            我的收藏
-          </button>
+    const cards = Array.from(container.querySelectorAll('[data-entry-id]'))
+    if (!cards.length) {
+      setCurrentVisibleDate('')
+      return
+    }
+
+    const containerTop = container.getBoundingClientRect().top
+    const activeCard =
+      cards.find((card) => card.getBoundingClientRect().bottom >= containerTop + 32) ?? cards[cards.length - 1]
+
+    const monthLabel = activeCard?.getAttribute('data-month-label') ?? ''
+    setCurrentVisibleDate(monthLabel)
+  }
+
+  const handleScroll = () => {
+    setIsScrolling(true)
+
+    if (hideBubbleTimerRef.current) {
+      window.clearTimeout(hideBubbleTimerRef.current)
+    }
+
+    hideBubbleTimerRef.current = window.setTimeout(() => {
+      setIsScrolling(false)
+    }, 800)
+
+    if (scrollRafRef.current) return
+
+    // Use requestAnimationFrame as a lightweight throttle for frequent scroll events.
+    scrollRafRef.current = window.requestAnimationFrame(() => {
+      updateCurrentVisibleDate()
+      scrollRafRef.current = null
+    })
+  }
+
+  useEffect(() => {
+    setCurrentVisibleDate(visibleEntries[0] ? formatVisibleMonth(visibleEntries[0]) : '')
+  }, [visibleEntries])
+
+  useEffect(() => {
+    const container = scrollContainerRef.current
+    if (!container) return
+    container.scrollTo({ top: 0 })
+    setIsScrolling(false)
+  }, [activeTab])
+
+  useEffect(() => {
+    return () => {
+      clearLongPress()
+      if (hideBubbleTimerRef.current) window.clearTimeout(hideBubbleTimerRef.current)
+      if (scrollRafRef.current) window.cancelAnimationFrame(scrollRafRef.current)
+    }
+  }, [])
+
+  return (
+    <div className="flex h-[calc(100vh-8.5rem)] flex-col bg-[#f2f2f7]">
+      <div className="pb-4">
+        <div className="bg-gradient-to-b from-white to-[#f2f2f7] px-2 pt-2 pb-5">
+          <h1 className="bg-gradient-to-r from-[#1d1d1f] to-[#86868b] bg-clip-text text-[34px] font-bold tracking-tight text-transparent">
+            历史记录
+          </h1>
+          <p className="mt-2 text-[14px] text-[#8e8e93]">
+            {activeTab === 'starred' ? `已收藏 ${starredEntries.length} 条回忆` : `共 ${sortedEntries.length} 条记录，按时间倒序查看`}
+          </p>
+        </div>
+
+        <div className="px-1 pt-1">
+          <div className="flex rounded-[14px] bg-gradient-to-br from-gray-100 to-gray-200/60 p-1 shadow-inner">
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`flex-1 rounded-[12px] px-4 py-2.5 text-[13px] font-semibold transition-all duration-200 ${
+                activeTab === 'all' ? 'bg-white text-black shadow-md shadow-gray-300/40' : 'text-[#3c3c43]/70'
+              }`}
+            >
+              全部记录
+            </button>
+            <button
+              onClick={() => setActiveTab('starred')}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-[12px] px-4 py-2.5 text-[13px] font-semibold transition-all duration-200 ${
+                activeTab === 'starred' ? 'bg-white text-black shadow-md shadow-gray-300/40' : 'text-[#3c3c43]/70'
+              }`}
+            >
+              <span className={activeTab === 'starred' ? 'text-[#FFCC00]' : 'opacity-60'}>★</span>
+              我的收藏
+            </button>
+          </div>
         </div>
       </div>
 
-      {activeTab === 'all' ? (
-        <>
-          <div className="px-4 pb-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/5 rounded-[18px] p-4 border border-blue-100/50">
-                <div className="flex items-center gap-2 mb-1">
-                  <Calendar size={16} className="text-[#007AFF]" />
-                  <span className="text-[11px] text-[#8e8e93] font-semibold uppercase tracking-wide">总天数</span>
-                </div>
-                <div className="text-[28px] font-bold tracking-tight">{totalDays}</div>
-              </div>
-              <div className="bg-gradient-to-br from-emerald-500/10 to-green-500/5 rounded-[18px] p-4 border border-emerald-100/50">
-                <div className="flex items-center gap-2 mb-1">
-                  <TrendingUp size={16} className="text-emerald-600" />
-                  <span className="text-[11px] text-[#8e8e93] font-semibold uppercase tracking-wide">平均值</span>
-                </div>
-                <div className="text-[28px] font-bold tracking-tight">{globalAverage.toFixed(1)}</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="px-4 pt-2 pb-6">
-            {historyData.length ? (
-              <div className="space-y-3">
-                {historyData.map((record, index) => (
-                  <div
-                    key={record.id}
-                    className="bg-white rounded-[20px] shadow-sm hover:shadow-md transition-all overflow-hidden"
-                    style={{ animation: `slideIn 0.3s ease-out ${index * 0.05}s backwards` }}
-                  >
-                    <button
-                      onClick={() => navigate(`/day/${record.date}`)}
-                      className="w-full px-5 py-5 flex items-center gap-4 text-left group"
-                    >
-                      <div
-                        className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl bg-gradient-to-br ${getMoodColor(record.average)} text-white shadow-lg`}
-                      >
-                        {getMoodEmoji(record.average)}
-                      </div>
-
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[20px] font-semibold tracking-tight">{formatLocalMonthDay(record.date)}</span>
-                          {getTrendIcon(record.trend)}
-                        </div>
-                        <div className="flex items-center gap-3 text-[14px] text-[#8e8e93]">
-                          <span className="font-medium px-2.5 py-0.5 bg-gray-100/80 rounded-full">{record.count} 条记录</span>
-                          <span className="font-semibold">平均 {record.average}</span>
-                        </div>
-                      </div>
-
-                      <ChevronRight size={20} className="text-[#C7C7CC] group-hover:text-[#007AFF] transition-colors flex-shrink-0" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white rounded-[20px] shadow-sm p-6 text-center text-[#8e8e93]">暂无历史记录</div>
-            )}
-          </div>
-        </>
-      ) : (
-        <div className="px-4 pt-2 pb-6">
-          {starredEntries.length ? (
-            <div className="space-y-3">
-              {starredEntries.map((entry) => {
-                const moodScore = Number(entry?.emotion?.score ?? entry?.score ?? 3)
-                const moodColor = moodColors[moodScore] ?? '#8E8E93'
+      <div className="relative min-h-0 flex-1">
+        <div
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="h-full overflow-y-auto pr-1 pb-6"
+        >
+          {visibleEntries.length ? (
+            <div className="space-y-3 pr-3">
+              {visibleEntries.map((entry) => {
+                if (!entry || !entry.id) return null
 
                 return (
-                  <div
+                  <HistoryEntryCard
                     key={entry.id}
-                    className="bg-white rounded-[20px] shadow-sm"
-                    onClick={() => handleCardClick(entry.id)}
-                    onTouchStart={() => startLongPress(entry.id)}
-                    onMouseDown={() => startLongPress(entry.id)}
-                    onTouchEnd={clearLongPress}
-                    onMouseUp={clearLongPress}
-                    onMouseLeave={clearLongPress}
-                    onTouchMove={clearLongPress}
-                  >
-                    <div className="px-4 py-4">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div
-                          className="w-10 h-10 rounded-full flex items-center justify-center text-xl bg-gray-100 flex-shrink-0"
-                          style={{ backgroundColor: `${moodColor}20` }}
-                        >
-                          {entry?.emotion?.emoji ?? '🙂'}
-                        </div>
-                        <span className="text-[16px] font-medium text-black whitespace-nowrap">
-                          {entry?.emotion?.label ?? entry?.mood ?? '心情'}
-                        </span>
-                        <span className="text-[13px] text-gray-400 whitespace-nowrap">{entry.time}</span>
-                        {entry?.ai_feedback ? <Sparkles size={14} className="text-[#FF9500]" /> : null}
-                        <button
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            onToggleFavorite?.(entry.id)
-                          }}
-                          onMouseDown={(event) => event.stopPropagation()}
-                          onTouchStart={(event) => event.stopPropagation()}
-                          className="ml-auto p-2 rounded-lg"
-                        >
-                          <Star
-                            size={20}
-                            fill={entry.isFavorite ? '#FFCC00' : 'none'}
-                            stroke={entry.isFavorite ? '#FFCC00' : '#C7C7CC'}
-                            strokeWidth={2}
-                          />
-                        </button>
-                      </div>
-
-                      {entry.note ? (
-                        <p className="text-[15px] text-[#3c3c43] leading-relaxed whitespace-pre-wrap">{entry.note}</p>
-                      ) : null}
-
-                      {entry.image ? (
-                        <img
-                          src={entry.image}
-                          alt="心情图片"
-                          className="mt-3 w-full max-h-72 rounded-xl object-cover cursor-pointer hover:opacity-90"
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            setSelectedImage(entry.image)
-                          }}
-                          onMouseDown={(event) => event.stopPropagation()}
-                          onTouchStart={(event) => event.stopPropagation()}
-                        />
-                      ) : null}
-                    </div>
-                  </div>
+                    entry={entry}
+                    onToggleFavorite={onToggleFavorite}
+                    onOpenImage={setSelectedImage}
+                    onCardClick={handleCardClick}
+                    onStartLongPress={startLongPress}
+                    onClearLongPress={clearLongPress}
+                  />
                 )
               })}
             </div>
           ) : (
-            <div className="bg-white rounded-[20px] shadow-sm p-6 text-center text-[#8e8e93]">暂无收藏的记录</div>
+            <div className="mx-2 rounded-[24px] border border-white/70 bg-white/90 px-6 py-12 text-center shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#007AFF]/10 text-[#007AFF]">
+                <CalendarClock size={26} strokeWidth={2.1} />
+              </div>
+              <h2 className="mt-4 text-[18px] font-semibold text-[#1d1d1f]">
+                {activeTab === 'starred' ? '还没有收藏的记录' : '还没有历史记录'}
+              </h2>
+              <p className="mt-2 text-[14px] leading-6 text-[#8e8e93]">
+                {activeTab === 'starred'
+                  ? '看到想珍藏的心情时，点亮右上角的星标，它就会出现在这里。'
+                  : '当你写下新的日记后，它们会在这里按时间顺序慢慢铺开。'}
+              </p>
+            </div>
           )}
         </div>
-      )}
 
-      {selectedImage && <ImageModal imageUrl={selectedImage} onClose={() => setSelectedImage(null)} />}
+        <div
+          className={`pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 transition-all duration-200 ${
+            isScrolling && currentVisibleDate ? 'translate-x-0 opacity-100' : 'translate-x-3 opacity-0'
+          }`}
+        >
+          <div className="rounded-2xl border border-white/60 bg-white/70 px-3 py-2 text-[13px] font-semibold text-slate-700 shadow-[0_14px_30px_rgba(15,23,42,0.12)] backdrop-blur-md">
+            {currentVisibleDate}
+          </div>
+        </div>
+      </div>
 
-      <style>{`
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+      {selectedImage ? <ImageModal imageUrl={selectedImage} onClose={() => setSelectedImage(null)} /> : null}
     </div>
   )
 }
