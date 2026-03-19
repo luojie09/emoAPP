@@ -1,19 +1,12 @@
-import { useRef, useState } from 'react'
+﻿import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import exifr from 'exifr'
 import MoodPicker from '../components/MoodPicker'
 import TopBar from '../components/TopBar'
-import { getLocalDateTimeParts, getTodayKey } from '../utils'
 
 const MAX_IMAGE_EDGE = 1280
 const JPEG_QUALITY = 0.8
 const MAX_UPLOAD_SIZE = 20 * 1024 * 1024
 const MAX_BASE64_BYTES = 2.5 * 1024 * 1024
-
-function toTimeInputValue(date) {
-  const pad = (value) => String(value).padStart(2, '0')
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
 
 function compressImageToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -55,8 +48,6 @@ export default function AddEntryPageV3({ onSave, onQueueAiTask, onToast, onGener
   const [note, setNote] = useState('')
   const [image, setImage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
-  const [selectedDate, setSelectedDate] = useState(() => getLocalDateTimeParts(new Date()).localDate || getTodayKey())
-  const [selectedTime, setSelectedTime] = useState(() => toTimeInputValue(new Date()))
 
   const handlePickImage = () => imageInputRef.current?.click()
 
@@ -84,30 +75,6 @@ export default function AddEntryPageV3({ onSave, onQueueAiTask, onToast, onGener
       setImage('')
       onToast?.('图片处理失败，请重试')
     }
-
-    try {
-      const exifData = await exifr.parse(file)
-      const exifDateTime = exifData?.DateTimeOriginal
-      const capturedAt =
-        exifDateTime instanceof Date
-          ? exifDateTime
-          : exifDateTime
-            ? new Date(exifDateTime)
-            : file.lastModified
-              ? new Date(file.lastModified)
-              : null
-
-      if (!capturedAt || Number.isNaN(capturedAt.getTime())) return
-
-      const diffMs = Date.now() - capturedAt.getTime()
-      if (diffMs <= 60 * 60 * 1000 || diffMs < 0) return
-
-      const { localDate, localTime } = getLocalDateTimeParts(capturedAt)
-      if (localDate) setSelectedDate(localDate)
-      if (localTime) setSelectedTime(localTime)
-    } catch {
-      // Ignore EXIF parse failures for images without metadata.
-    }
   }
 
   const handleSave = async () => {
@@ -115,16 +82,9 @@ export default function AddEntryPageV3({ onSave, onQueueAiTask, onToast, onGener
     setIsSaving(true)
 
     const text = note.trim()
-    const safeDate = typeof selectedDate === 'string' && selectedDate ? selectedDate : getTodayKey()
-    const safeTime = typeof selectedTime === 'string' && selectedTime ? selectedTime : toTimeInputValue(new Date())
-    const selected = new Date(`${safeDate}T${safeTime}:00`)
-    const validDate = Number.isNaN(selected.getTime()) ? new Date() : selected
-    const { localDate, localTime } = getLocalDateTimeParts(validDate)
-
     const entry = {
       id: `${Date.now()}`,
-      date: localDate || safeDate || getTodayKey(),
-      time: localTime || safeTime,
+      created_at: new Date().toISOString(),
       emotion,
       score: emotion.score,
       mood: emotion.label,
@@ -165,10 +125,6 @@ export default function AddEntryPageV3({ onSave, onQueueAiTask, onToast, onGener
     setEmotion(null)
     setNote('')
     setImage('')
-    const now = new Date()
-    const { localDate: nowDate, localTime: nowTime } = getLocalDateTimeParts(now)
-    setSelectedDate(nowDate || getTodayKey())
-    setSelectedTime(nowTime || toTimeInputValue(now))
     setIsSaving(false)
     navigate('/')
   }
@@ -184,18 +140,8 @@ export default function AddEntryPageV3({ onSave, onQueueAiTask, onToast, onGener
         <textarea
           value={note}
           onChange={(event) => setNote(event.target.value)}
-          placeholder="写一句此刻发生的事..."
+          placeholder="写下一句此刻发生的事..."
           className="h-36 w-full resize-none border-0 bg-transparent p-0 text-base text-gray-700 placeholder:text-sm placeholder:text-gray-400 focus:outline-none"
-        />
-      </div>
-
-      <div className="rounded-2xl bg-white p-4 shadow-sm">
-        <label className="text-sm font-medium text-gray-600">记录时间</label>
-        <input
-          type="time"
-          value={selectedTime}
-          onChange={(event) => setSelectedTime(event.target.value)}
-          className="mt-2 w-full appearance-none rounded-xl border-0 bg-gray-50 px-4 py-3 text-base text-gray-700 ring-1 ring-gray-100 outline-none focus:ring-2 focus:ring-blue-200"
         />
       </div>
 

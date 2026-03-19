@@ -9,7 +9,7 @@ import EntryDetailPage from './pages/EntryDetailPageV2'
 import HistoryPage from './pages/HistoryPageV2'
 import ProfilePage from './pages/ProfilePageV2'
 import TodayPage from './pages/TodayPageV2'
-import { groupEntriesByDay, readEntries } from './utils'
+import { getLocalDateTimeParts, groupEntriesByDay, readEntries } from './utils'
 import { supabase } from './supabaseClient'
 
 function rowToEntry(row) {
@@ -411,10 +411,20 @@ export default function App() {
   }
 
   const handleAddEntry = async (entry) => {
+    const createdAtIso =
+      typeof entry?.created_at === 'string' && entry.created_at ? entry.created_at : new Date().toISOString()
+    const createdAtDate = new Date(createdAtIso)
+    const { localDate, localTime } = Number.isNaN(createdAtDate.getTime())
+      ? getLocalDateTimeParts(new Date())
+      : getLocalDateTimeParts(createdAtDate)
+
     if (isGuest) {
       const guestEntry = {
         ...entry,
         id: `guest-${Date.now()}`,
+        created_at: createdAtIso,
+        date: localDate,
+        time: localTime,
       }
 
       setEntries((prev) => {
@@ -426,8 +436,6 @@ export default function App() {
     }
 
     if (!session?.user) throw new Error('not-authenticated')
-
-    const dateTimeIso = new Date(`${entry.date}T${entry.time}:00`).toISOString()
     const { data, error } = await supabase
       .from('entries')
       .insert({
@@ -439,7 +447,7 @@ export default function App() {
         image_url: entry.image,
         is_favorite: entry.isFavorite,
         ai_feedback: entry.ai_feedback ?? null,
-        created_at: dateTimeIso,
+        created_at: createdAtIso,
       })
       .select('id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback')
       .single()
