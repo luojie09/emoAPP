@@ -1,4 +1,4 @@
-const moodCategories = [
+﻿const moodCategories = [
   {
     title: '狂喜与高光',
     moods: [
@@ -11,7 +11,7 @@ const moodCategories = [
       { emoji: '🤩', label: '心动', score: 5 },
       { emoji: '😘', label: '飞吻', score: 5 },
       { emoji: '🤗', label: '抱抱', score: 5 },
-      { emoji: '🥳', label: '聚会', score: 5 },
+      { emoji: '🥳', label: '庆祝', score: 5 },
       { emoji: '😎', label: '酷', score: 5 },
       { emoji: '🤑', label: '发财', score: 5 },
       { emoji: '😸', label: '大笑', score: 5 },
@@ -88,24 +88,24 @@ const moodCategories = [
 
 export default function MoodPicker({ value, onSelect }) {
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm">
+    <div className="mb-4 rounded-[22px] border border-black/5 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-gray-700">选择此刻的心情</p>
-          <p className="mt-1 text-xs text-gray-400">从高光到低落，按情绪强烈程度分段排列</p>
+          <p className="text-base text-gray-700">此刻你的感觉怎么样？</p>
+          <p className="mt-1 text-xs text-gray-400">从高光到低落，按情绪波动自然排开</p>
         </div>
 
-        <div className="rounded-full bg-gray-50 px-3 py-1.5 text-sm text-gray-600">
+        <div className="rounded-full bg-[#f5f4f0] px-3 py-1.5 text-sm text-gray-600">
           {value?.emoji ? `${value.emoji} ${value.label}` : '请选择'}
         </div>
       </div>
 
-      <div className="rounded-2xl bg-gray-50/80 p-3">
-        <div className="max-h-72 overflow-y-auto pr-1">
-          {moodCategories.map((category) => (
-            <section key={category.title}>
-              <div className="mb-2 mt-4 text-xs text-gray-400 first:mt-0">{category.title}</div>
-              <div className="grid grid-cols-6 gap-2 sm:grid-cols-8">
+      <div className="rounded-[20px] bg-[#fbfaf7] p-3">
+        <div className="max-h-72 overflow-y-auto pr-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {moodCategories.map((category, categoryIndex) => (
+            <section key={category.title} className={categoryIndex ? 'mt-4 border-t border-[#ece8df] pt-4' : ''}>
+              <div className="mb-3 text-xs text-gray-400">{category.title}</div>
+              <div className="grid grid-cols-5 gap-3 sm:grid-cols-6">
                 {category.moods.map((mood) => {
                   const isSelected =
                     value?.emoji === mood.emoji && value?.label === mood.label && Number(value?.score) === mood.score
@@ -116,8 +116,10 @@ export default function MoodPicker({ value, onSelect }) {
                       type="button"
                       title={mood.label}
                       onClick={() => onSelect?.({ emoji: mood.emoji, label: mood.label, score: mood.score })}
-                      className={`flex items-center justify-center rounded-xl px-2 py-3 text-2xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#77d6bd]/30 ${
-                        isSelected ? 'bg-white shadow-sm ring-2 ring-[#77d6bd]/30' : 'hover:bg-white hover:shadow-sm'
+                      className={`flex h-12 w-12 items-center justify-center rounded-full text-2xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#a08ff0]/30 ${
+                        isSelected
+                          ? 'bg-white ring-2 ring-[#a08ff0] shadow-[0_6px_16px_rgba(160,143,240,0.16)]'
+                          : 'bg-[#f5f4f0] hover:bg-white hover:shadow-sm'
                       }`}
                     >
                       <span aria-hidden="true">{mood.emoji}</span>

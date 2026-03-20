@@ -1,7 +1,7 @@
 ﻿import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ImagePlus, X } from 'lucide-react'
 import MoodPicker from '../components/MoodPicker'
-import TopBar from '../components/TopBar'
 
 const MAX_IMAGE_EDGE = 1280
 const JPEG_QUALITY = 0.8
@@ -41,6 +41,19 @@ function compressImageToBase64(file) {
   })
 }
 
+function getGreetingLabel() {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'GOOD MORNING'
+  if (hour < 18) return 'GOOD AFTERNOON'
+  return 'GOOD EVENING'
+}
+
+function formatCurrentDate() {
+  const date = new Date()
+  const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 · ${weekdays[date.getDay()]}`
+}
+
 export default function AddEntryPageV3({ onSave, onQueueAiTask, onToast, onGenerateAiFeedback }) {
   const navigate = useNavigate()
   const imageInputRef = useRef(null)
@@ -50,6 +63,14 @@ export default function AddEntryPageV3({ onSave, onQueueAiTask, onToast, onGener
   const [isSaving, setIsSaving] = useState(false)
 
   const handlePickImage = () => imageInputRef.current?.click()
+
+  const handleRemoveImage = (event) => {
+    event.stopPropagation()
+    setImage('')
+    if (imageInputRef.current) {
+      imageInputRef.current.value = ''
+    }
+  }
 
   const handleImageChange = async (event) => {
     const file = event.target.files?.[0]
@@ -130,47 +151,69 @@ export default function AddEntryPageV3({ onSave, onQueueAiTask, onToast, onGener
   }
 
   return (
-    <div className="space-y-4 pt-3">
-      <TopBar title="记录现在的心情" />
-      <p className="text-base text-gray-700">此刻你的感觉怎么样？</p>
+    <div className="-mx-4 -mt-5 min-h-screen overflow-y-auto bg-[#f7f6f2] px-4 pt-6 pb-8 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <div className="mb-5 px-1">
+        <p className="mb-1 text-[11px] tracking-[0.32em] text-gray-400">{getGreetingLabel()}</p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/70 text-gray-700 shadow-sm ring-1 ring-black/5"
+            aria-label="返回"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="m15 5-7 7 7 7" />
+            </svg>
+          </button>
+          <div>
+            <h1 className="text-3xl font-serif font-bold text-gray-900">记录</h1>
+            <p className="mt-1 text-xs text-gray-400">{formatCurrentDate()}</p>
+          </div>
+        </div>
+      </div>
 
       <MoodPicker value={emotion} onSelect={setEmotion} />
 
-      <div className="rounded-2xl bg-white p-4 shadow-sm">
+      <div className="mb-4 rounded-[22px] border border-black/5 bg-white p-5 shadow-sm">
         <textarea
           value={note}
           onChange={(event) => setNote(event.target.value)}
           placeholder="写下一句此刻发生的事..."
-          className="h-36 w-full resize-none border-0 bg-transparent p-0 text-base text-gray-700 placeholder:text-sm placeholder:text-gray-400 focus:outline-none"
+          className="h-32 w-full resize-none border-0 bg-transparent p-0 text-[15px] text-gray-800 outline-none placeholder:text-gray-400 focus:outline-none"
         />
       </div>
 
       <button
         onClick={handlePickImage}
-        className="flex h-24 w-full items-center justify-center gap-2 rounded-2xl bg-white text-sm text-gray-400 shadow-sm"
+        className="mb-4 flex w-full cursor-pointer flex-col items-center justify-center rounded-[22px] border border-black/5 bg-white p-6 shadow-sm"
       >
-        <span>
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" />
-            <path d="M12 15V4" />
-            <path d="m8 8 4-4 4 4" />
-          </svg>
-        </span>
-        <span>添加一张图片（可选）</span>
+        {image ? (
+          <div className="relative w-full">
+            <img src={image} alt="预览" className="h-44 w-full rounded-xl object-cover" />
+            <button
+              type="button"
+              onClick={handleRemoveImage}
+              className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm"
+              aria-label="删除图片"
+            >
+              <X size={16} strokeWidth={2.2} />
+            </button>
+          </div>
+        ) : (
+          <>
+            <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-[#f5f4f0] text-gray-400">
+              <ImagePlus size={20} strokeWidth={2} />
+            </span>
+            <span className="text-sm text-gray-400">↑ 添加一张图片（可选）</span>
+          </>
+        )}
       </button>
 
       <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
 
-      {image ? (
-        <div className="rounded-2xl bg-white p-4 shadow-sm">
-          <img src={image} alt="预览" className="h-20 w-20 rounded-xl object-cover" />
-        </div>
-      ) : null}
-
       <button
         onClick={handleSave}
         disabled={!emotion || isSaving}
-        className="w-full rounded-xl bg-indigo-500 py-4 text-base font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+        className="mb-8 w-full rounded-[20px] border-0 bg-gradient-to-br from-[#a08ff0] to-[#c47bbf] py-4 text-[16px] font-medium text-white shadow-sm transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isSaving ? '保存中...' : '保存这次心情'}
       </button>
