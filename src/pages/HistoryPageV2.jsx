@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CalendarClock } from 'lucide-react'
 import EntryCard from '../components/EntryCard'
@@ -30,6 +30,19 @@ function formatVisibleMonth(entry) {
   return `${date.getFullYear()}年${date.getMonth() + 1}月`
 }
 
+function getEntryDateKey(entry) {
+  const date = parseEntryDate(entry)
+  if (!date) return 'unknown'
+  const pad = (value) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+function formatGroupDate(entry) {
+  const date = parseEntryDate(entry)
+  if (!date) return '未知日期'
+  return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`
+}
+
 export default function HistoryPageV2({ entries, onToggleFavorite, onDeleteEntry }) {
   const navigate = useNavigate()
   const scrollContainerRef = useRef(null)
@@ -52,12 +65,17 @@ export default function HistoryPageV2({ entries, onToggleFavorite, onDeleteEntry
       })
   }, [entries])
 
-  const starredEntries = useMemo(
-    () => sortedEntries.filter((entry) => entry?.isFavorite === true),
-    [sortedEntries],
-  )
+  const starredEntries = useMemo(() => sortedEntries.filter((entry) => entry?.isFavorite === true), [sortedEntries])
 
   const visibleEntries = activeTab === 'starred' ? starredEntries : sortedEntries
+
+  const groupCounts = useMemo(() => {
+    return visibleEntries.reduce((acc, entry) => {
+      const key = getEntryDateKey(entry)
+      acc[key] = (acc[key] ?? 0) + 1
+      return acc
+    }, {})
+  }, [visibleEntries])
 
   const clearLongPress = () => {
     if (longPressTimerRef.current) {
@@ -117,7 +135,6 @@ export default function HistoryPageV2({ entries, onToggleFavorite, onDeleteEntry
 
     if (scrollRafRef.current) return
 
-    // Use requestAnimationFrame as a lightweight throttle for frequent scroll events.
     scrollRafRef.current = window.requestAnimationFrame(() => {
       updateCurrentVisibleDate()
       scrollRafRef.current = null
@@ -144,37 +161,28 @@ export default function HistoryPageV2({ entries, onToggleFavorite, onDeleteEntry
   }, [])
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[#f2f2f7]">
-      <div className="shrink-0 pb-4">
-        <div className="bg-gradient-to-b from-white to-[#f2f2f7] px-2 pt-2 pb-5">
-          <h1 className="bg-gradient-to-r from-[#1d1d1f] to-[#86868b] bg-clip-text text-[34px] font-bold tracking-tight text-transparent">
-            历史记录
-          </h1>
-          <p className="mt-2 text-[14px] text-[#8e8e93]">
-            {activeTab === 'starred' ? `已收藏 ${starredEntries.length} 条回忆` : `共 ${sortedEntries.length} 条记录，按时间倒序查看`}
-          </p>
-        </div>
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[#f7f6f2]">
+      <div className="shrink-0 px-4 pt-3 pb-4">
+        <h1 className="text-3xl font-serif font-bold text-[#1a1814]">历史记录</h1>
+        <p className="mt-2 text-sm text-gray-400">共 {sortedEntries.length} 条记录</p>
 
-        <div className="px-1 pt-1">
-          <div className="flex rounded-[14px] bg-gradient-to-br from-gray-100 to-gray-200/60 p-1 shadow-inner">
-            <button
-              onClick={() => setActiveTab('all')}
-              className={`flex-1 rounded-[12px] px-4 py-2.5 text-[13px] font-semibold transition-all duration-200 ${
-                activeTab === 'all' ? 'bg-white text-black shadow-md shadow-gray-300/40' : 'text-[#3c3c43]/70'
-              }`}
-            >
-              全部记录
-            </button>
-            <button
-              onClick={() => setActiveTab('starred')}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-[12px] px-4 py-2.5 text-[13px] font-semibold transition-all duration-200 ${
-                activeTab === 'starred' ? 'bg-white text-black shadow-md shadow-gray-300/40' : 'text-[#3c3c43]/70'
-              }`}
-            >
-              <span className={activeTab === 'starred' ? 'text-[#FFCC00]' : 'opacity-60'}>★</span>
-              我的收藏
-            </button>
-          </div>
+        <div className="mt-5 flex items-center gap-3">
+          <button
+            onClick={() => setActiveTab('all')}
+            className={`rounded-full px-5 py-2.5 text-sm font-medium transition-colors ${
+              activeTab === 'all' ? 'bg-[#1a1814] text-white' : 'bg-[#f0ede8] text-gray-500'
+            }`}
+          >
+            全部记录
+          </button>
+          <button
+            onClick={() => setActiveTab('starred')}
+            className={`rounded-full px-5 py-2.5 text-sm font-medium transition-colors ${
+              activeTab === 'starred' ? 'bg-[#1a1814] text-white' : 'bg-[#f0ede8] text-gray-500'
+            }`}
+          >
+            ☆ 我的收藏
+          </button>
         </div>
       </div>
 
@@ -182,34 +190,47 @@ export default function HistoryPageV2({ entries, onToggleFavorite, onDeleteEntry
         <div
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="h-full min-h-0 overflow-y-auto pr-1"
+          className="h-full min-h-0 overflow-y-auto pb-28 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         >
           {visibleEntries.length ? (
-            <div className="space-y-3 pr-3 pb-28">
-              {visibleEntries.map((entry) => {
+            <div className="px-0 pb-4">
+              {visibleEntries.map((entry, index) => {
                 if (!entry || !entry.id) return null
 
+                const currentDateKey = getEntryDateKey(entry)
+                const previousDateKey = index > 0 ? getEntryDateKey(visibleEntries[index - 1]) : null
+                const shouldRenderGroupLabel = index === 0 || currentDateKey !== previousDateKey
+
                 return (
-                  <EntryCard
-                    key={entry.id}
-                    entry={entry}
-                    monthLabel={formatVisibleMonth(entry)}
-                    onToggleFavorite={onToggleFavorite}
-                    onOpenImage={setSelectedImage}
-                    onCardClick={handleCardClick}
-                    onStartLongPress={startLongPress}
-                    onClearLongPress={clearLongPress}
-                  />
+                  <div key={entry.id}>
+                    {shouldRenderGroupLabel ? (
+                      <div className="flex items-center gap-2 px-5 py-2 text-sm font-medium text-gray-500">
+                        <span>🗓️</span>
+                        <span>{formatGroupDate(entry)}</span>
+                        <span className="text-xs text-gray-400">{groupCounts[currentDateKey] ?? 0} 条记录</span>
+                      </div>
+                    ) : null}
+
+                    <EntryCard
+                      entry={entry}
+                      monthLabel={formatVisibleMonth(entry)}
+                      onToggleFavorite={onToggleFavorite}
+                      onOpenImage={setSelectedImage}
+                      onCardClick={handleCardClick}
+                      onStartLongPress={startLongPress}
+                      onClearLongPress={clearLongPress}
+                    />
+                  </div>
                 )
               })}
             </div>
           ) : (
-            <div className="px-2 pb-28">
-              <div className="rounded-[24px] border border-white/70 bg-white/90 px-6 py-12 text-center shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#007AFF]/10 text-[#007AFF]">
+            <div className="px-4 pb-28">
+              <div className="rounded-[24px] border border-black/5 bg-white px-6 py-12 text-center shadow-sm">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#f0eeff] text-[#a08ff0]">
                   <CalendarClock size={26} strokeWidth={2.1} />
                 </div>
-                <h2 className="mt-4 text-[18px] font-semibold text-[#1d1d1f]">
+                <h2 className="mt-4 text-[18px] font-semibold text-[#1a1814]">
                   {activeTab === 'starred' ? '还没有收藏的记录' : '还没有历史记录'}
                 </h2>
                 <p className="mt-2 text-[14px] leading-6 text-[#8e8e93]">
@@ -223,11 +244,11 @@ export default function HistoryPageV2({ entries, onToggleFavorite, onDeleteEntry
         </div>
 
         <div
-          className={`pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 transition-all duration-200 ${
+          className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 transition-all duration-200 ${
             isScrolling && currentVisibleDate ? 'translate-x-0 opacity-100' : 'translate-x-3 opacity-0'
           }`}
         >
-          <div className="rounded-2xl border border-white/60 bg-white/70 px-3 py-2 text-[13px] font-semibold text-slate-700 shadow-[0_14px_30px_rgba(15,23,42,0.12)] backdrop-blur-md">
+          <div className="rounded-2xl border border-white/60 bg-white/80 px-3 py-2 text-[13px] font-semibold text-[#5c564e] shadow-[0_14px_30px_rgba(15,23,42,0.12)] backdrop-blur-md">
             {currentVisibleDate}
           </div>
         </div>
