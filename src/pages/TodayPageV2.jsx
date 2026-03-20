@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react'
+﻿import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Sparkles, Star } from 'lucide-react'
+import { Plus, Star } from 'lucide-react'
 import { Area, AreaChart, ResponsiveContainer, YAxis } from 'recharts'
 import ImageModal from '../components/ImageModal'
 import MoodAvatar from '../components/MoodAvatar'
@@ -9,6 +9,21 @@ function getTodayKey() {
   const now = new Date()
   const pad = (value) => String(value).padStart(2, '0')
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+}
+
+function getGreetingLabel() {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'GOOD MORNING'
+  if (hour < 18) return 'GOOD AFTERNOON'
+  return 'GOOD EVENING'
+}
+
+function formatHeaderDate(todayKey) {
+  const date = new Date(`${todayKey}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return todayKey
+
+  const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 · ${weekdays[date.getDay()]}`
 }
 
 export default function TodayPageV2({ entries, onToggleFavorite, onDeleteEntry }) {
@@ -69,39 +84,50 @@ export default function TodayPageV2({ entries, onToggleFavorite, onDeleteEntry }
   }
 
   return (
-    <div className="min-h-screen bg-[#f2f2f7]">
-      <div className="bg-white px-6 pt-4 pb-3">
-        <div className="flex items-center justify-between">
-          <h1 className="text-[34px] font-bold tracking-tight">今天</h1>
-          <button className="hidden">
-            退出登录
-          </button>
-        </div>
+    <div className="-mx-4 -mt-6 min-h-screen bg-[#f7f6f2] px-4 pt-6 pb-10">
+      <div className="px-1">
+        <p className="mb-1 text-[11px] tracking-[0.32em] text-gray-400">{getGreetingLabel()}</p>
+        <h1 className="text-3xl font-serif font-bold text-gray-900">今天</h1>
+        <p className="mt-1 text-xs text-gray-400">{formatHeaderDate(todayKey)}</p>
       </div>
 
-      <div className="px-4 pt-5 pb-4">
-        <div className="bg-white rounded-[20px] p-6 shadow-sm">
-          <div className="mb-4">
-            <p className="text-[13px] text-[#8e8e93] mb-1">本日平均</p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-[34px] font-semibold tracking-tight">{averageMood.toFixed(1)}</span>
-              <span className="text-[17px] text-[#8e8e93]">/ 5</span>
+      <div className="mt-5 rounded-[22px] border border-black/5 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.04)]">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[13px] text-gray-400">今日情绪均值</p>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-4xl font-semibold tracking-tight text-gray-900">{averageMood.toFixed(1)}</span>
+              <span className="text-xl text-gray-300">/5</span>
             </div>
           </div>
 
-          <ResponsiveContainer width="100%" height={150}>
-            <AreaChart data={emotionData} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
+          <span
+            className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium ${
+              averageMood >= 4
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-600'
+                : averageMood >= 3
+                  ? 'border-sky-200 bg-sky-50 text-sky-600'
+                  : 'border-orange-200 bg-orange-50 text-orange-600'
+            }`}
+          >
+            {averageMood >= 4 ? '状态明亮' : averageMood >= 3 ? '平稳流动' : '↓ 有些低落'}
+          </span>
+        </div>
+
+        <div className="mt-4 h-[140px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={emotionData} margin={{ top: 8, right: 2, left: 0, bottom: 0 }}>
               <YAxis domain={[1, 5]} hide />
               <defs>
                 <linearGradient id="colorMoodTodayV2" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#007AFF" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#007AFF" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#a08ff0" stopOpacity={0.28} />
+                  <stop offset="95%" stopColor="#a08ff0" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
               <Area
                 type="monotone"
                 dataKey="value"
-                stroke="#007AFF"
+                stroke="#a08ff0"
                 strokeWidth={2.5}
                 fill="url(#colorMoodTodayV2)"
                 strokeLinecap="round"
@@ -111,28 +137,34 @@ export default function TodayPageV2({ entries, onToggleFavorite, onDeleteEntry }
         </div>
       </div>
 
-      <div className="px-4 pb-4">
+      <div className="mt-4">
         <button
           onClick={() => navigate('/add')}
-          className="w-full bg-[#007AFF] hover:bg-[#0051D5] active:bg-[#004FC7] text-white rounded-[14px] py-3.5 flex items-center justify-center gap-2 font-semibold text-[17px] shadow-sm transition-colors"
+          className="flex w-full items-center gap-3 rounded-[20px] border-0 bg-gradient-to-br from-[#a08ff0] to-[#c47bbf] p-4 transition-transform active:scale-95"
         >
-          <Plus size={20} strokeWidth={2.5} />
-          <span>记录心情</span>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/20 text-white">
+            <Plus size={20} strokeWidth={2.5} />
+          </span>
+          <span className="flex flex-col items-start text-left">
+            <span className="text-[18px] font-semibold text-white">记录此刻心情</span>
+            <span className="mt-0.5 text-sm text-white/70">把这一刻留下来</span>
+          </span>
         </button>
       </div>
 
-      <div className="px-6 py-3">
-        <h2 className="text-[22px] font-bold">今日记录</h2>
+      <div className="mt-7 flex items-end justify-between px-1">
+        <h2 className="text-[26px] font-serif font-bold text-gray-900">今日记录</h2>
+        <span className="text-xs text-gray-400">{todayRecords.length} 条</span>
       </div>
 
-      <div className="px-4 pb-8">
+      <div className="mt-3 px-0.5 pb-4">
         {todayRecords.length ? (
           <div className="space-y-3">
             {todayRecords.map((entry) => {
               return (
                 <div
                   key={entry.id}
-                  className="bg-white rounded-[20px] shadow-sm"
+                  className="rounded-[18px] border border-black/5 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.04)]"
                   onClick={() => handleCardClick(entry.id)}
                   onTouchStart={() => startLongPress(entry.id)}
                   onMouseDown={() => startLongPress(entry.id)}
@@ -141,56 +173,62 @@ export default function TodayPageV2({ entries, onToggleFavorite, onDeleteEntry }
                   onMouseLeave={clearLongPress}
                   onTouchMove={clearLongPress}
                 >
-                  <div className="px-4 py-4">
-                    <div className="flex items-center gap-3 mb-3">
-                      <MoodAvatar emoji={entry?.emotion?.emoji ?? '🙂'} className="h-10 w-10 shrink-0 text-xl" />
-                      <span className="text-[16px] font-medium text-black whitespace-nowrap">
-                        {entry?.emotion?.label ?? entry?.mood ?? '心情'}
-                      </span>
-                      <span className="text-[13px] text-gray-400 whitespace-nowrap">{entry.time}</span>
-                      {entry?.ai_feedback ? <Sparkles size={14} className="text-[#FF9500]" /> : null}
-                      <button
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          onToggleFavorite?.(entry.id)
-                        }}
-                        onMouseDown={(event) => event.stopPropagation()}
-                        onTouchStart={(event) => event.stopPropagation()}
-                        className="ml-auto p-2 rounded-lg"
-                      >
-                        <Star
-                          size={20}
-                          fill={entry.isFavorite ? '#FFCC00' : 'none'}
-                          stroke={entry.isFavorite ? '#FFCC00' : '#C7C7CC'}
-                          strokeWidth={2}
-                        />
-                      </button>
+                  <div className="flex items-start gap-3">
+                    <MoodAvatar emoji={entry?.emotion?.emoji ?? '🙂'} className="h-9 w-9 shrink-0 !bg-[#f5f4f0] text-lg" />
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-[16px] font-semibold text-gray-900">
+                          {entry?.emotion?.label ?? entry?.mood ?? '心情'}
+                        </span>
+                        <span className="rounded-lg bg-purple-50 px-2 py-0.5 text-[10px] text-[#9080d0]">✦ 回信</span>
+                      </div>
+                      <p className="mt-1 text-[13px] text-gray-400">{entry.time}</p>
                     </div>
 
-                    {entry.note ? (
-                      <p className="text-[15px] text-[#3c3c43] leading-relaxed whitespace-pre-wrap">{entry.note}</p>
-                    ) : null}
-
-                    {entry.image ? (
-                      <img
-                        src={entry.image}
-                        alt="心情图片"
-                        className="mt-3 w-full max-h-72 rounded-xl object-cover cursor-pointer hover:opacity-90"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          setSelectedImage(entry.image)
-                        }}
-                        onMouseDown={(event) => event.stopPropagation()}
-                        onTouchStart={(event) => event.stopPropagation()}
+                    <button
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onToggleFavorite?.(entry.id)
+                      }}
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onTouchStart={(event) => event.stopPropagation()}
+                      className="ml-auto rounded-lg p-2"
+                    >
+                      <Star
+                        size={20}
+                        fill={entry.isFavorite ? '#e6a364' : 'none'}
+                        stroke={entry.isFavorite ? '#e6a364' : '#d5d0ca'}
+                        strokeWidth={2}
                       />
-                    ) : null}
+                    </button>
                   </div>
+
+                  {entry.note ? (
+                    <p className="mt-3 line-clamp-3 text-[15px] leading-7 text-[#5f5b57]">{entry.note}</p>
+                  ) : null}
+
+                  {entry.image ? (
+                    <img
+                      src={entry.image}
+                      alt="心情图片"
+                      className="mt-3 h-28 w-28 cursor-pointer rounded-2xl object-cover hover:opacity-90"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setSelectedImage(entry.image)
+                      }}
+                      onMouseDown={(event) => event.stopPropagation()}
+                      onTouchStart={(event) => event.stopPropagation()}
+                    />
+                  ) : null}
                 </div>
               )
             })}
           </div>
         ) : (
-          <div className="bg-white rounded-[20px] shadow-sm p-6 text-center text-[#8e8e93]">今天还没有记录</div>
+          <div className="rounded-[20px] border border-black/5 bg-white px-6 py-10 text-center text-sm text-gray-400 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+            今天还没有记录，去留下第一条心情吧。
+          </div>
         )}
       </div>
 
