@@ -3,6 +3,15 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      backdropBlur: {
+        'glass-card': '16px',
+      },
+      backgroundColor: {
+        'glass-card': 'rgba(255, 255, 255, 0.45)',
+      },
+      borderColor: {
+        'glass-card': 'rgba(255, 255, 255, 0.6)',
+      },
       colors: {
         bg: '#F3F4F6',
         card: '#FAFAFB',

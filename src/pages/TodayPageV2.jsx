@@ -184,7 +184,7 @@ export default function TodayPageV2({ entries, onToggleFavorite, onDeleteEntry }
               return (
                 <div
                   key={entry.id}
-                  className="rounded-[18px] border border-black/5 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.04)]"
+                  className="rounded-[18px] border border-glass-card bg-glass-card p-4 shadow-[0_10px_24px_rgba(15,23,42,0.04)] backdrop-blur-glass-card"
                   onClick={() => handleCardClick(entry.id)}
                   onTouchStart={() => startLongPress(entry.id)}
                   onMouseDown={() => startLongPress(entry.id)}

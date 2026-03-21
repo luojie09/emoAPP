@@ -58,7 +58,7 @@ export default function EntryCard({
     <article
       data-entry-id={entry?.id}
       data-month-label={monthLabel ?? ''}
-      className="mx-4 mb-3 rounded-[20px] border border-black/5 bg-white p-4 shadow-sm transition-transform active:scale-[0.99]"
+      className="mx-4 mb-3 rounded-[20px] border border-glass-card bg-glass-card p-4 shadow-sm backdrop-blur-glass-card transition-transform active:scale-[0.99]"
       onClick={() => onCardClick?.(entry?.id)}
       onTouchStart={() => onStartLongPress?.(entry?.id)}
       onMouseDown={() => onStartLongPress?.(entry?.id)}
