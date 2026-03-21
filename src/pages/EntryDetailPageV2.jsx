@@ -102,8 +102,8 @@ export default function EntryDetailPageV2({ entries }) {
 
         <div className="relative z-10">
           <div className="flex items-center">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#8b7de8]" />
-            <span className="ml-2 text-xs font-medium tracking-wide text-[#8b7de8]">
+            <span className="text-base leading-none">🌳</span>
+            <span className="ml-2 text-xs font-medium tracking-wide text-[#1a1814]">
               {replyText ? '来自时光树洞的回音…' : '回信正在途中…'}
             </span>
           </div>

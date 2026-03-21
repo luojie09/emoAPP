@@ -160,14 +160,14 @@ export default function TodayPageV2({ entries, onToggleFavorite, onDeleteEntry }
       <div className="mt-4">
         <button
           onClick={() => navigate('/add')}
-          className="flex w-full items-center gap-3 rounded-[20px] border-0 bg-gradient-to-br from-[#a08ff0] to-[#c47bbf] p-4 transition-transform active:scale-95"
+          className="flex w-full items-center gap-3 rounded-[20px] border-none bg-gradient-to-br from-[#c8b8f8] via-[#b0a0ee] to-[#c4b2f6] p-4 text-left shadow-[inset_0_1.5px_0_rgba(255,255,255,0.5),_0_3px_10px_rgba(160,143,240,0.28)] transition-all active:scale-95 active:opacity-90"
         >
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/20 text-white">
-            <Plus size={20} strokeWidth={2.5} />
+          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-white/20 text-xl text-white">
+            <Plus size={18} strokeWidth={2.5} />
           </span>
           <span className="flex flex-col items-start text-left">
-            <span className="text-[18px] font-semibold text-white">记录此刻心情</span>
-            <span className="mt-0.5 text-sm text-white/70">把这一刻留下来</span>
+            <span className="text-base font-medium text-white">记录此刻心情</span>
+            <span className="mt-0.5 text-[11px] text-white/60">把这一刻留下来</span>
           </span>
         </button>
       </div>
@@ -201,7 +201,7 @@ export default function TodayPageV2({ entries, onToggleFavorite, onDeleteEntry }
                         <span className="truncate text-[16px] font-semibold text-gray-900">
                           {entry?.emotion?.label ?? entry?.mood ?? '心情'}
                         </span>
-                        <span className="rounded-lg bg-purple-50 px-2 py-0.5 text-[10px] text-[#9080d0]">✦ 回信</span>
+                        <span className="ml-2 text-lg text-[#c0b8e8]">✉</span>
                       </div>
                       <p className="mt-1 text-[13px] text-gray-400">{entry.time}</p>
                     </div>

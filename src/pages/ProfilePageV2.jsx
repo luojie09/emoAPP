@@ -1,5 +1,5 @@
 ﻿import { useMemo, useRef, useState } from 'react'
-import { User, Upload, Download, RefreshCw, Info, Trash2, ChevronRight, LogOut, Pencil, Shield } from 'lucide-react'
+import { User, Upload, Download, Info, Trash2, ChevronRight, LogOut, Pencil, Shield } from 'lucide-react'
 import ProfileEditor from '../components/ProfileEditor'
 
 function downloadEntriesAsJson(entries) {
@@ -47,7 +47,6 @@ export default function ProfilePageV2({
   onLogin,
   onImportEntries,
   onToast,
-  onSync,
 }) {
   const importInputRef = useRef(null)
   const [isEditingProfile, setIsEditingProfile] = useState(false)
@@ -175,14 +174,9 @@ export default function ProfilePageV2({
         <div className="border-b border-[#f5f3ef] last:border-b-0">
           <ListRow icon={<Upload size={16} strokeWidth={2.2} />} label="导入数据" onClick={handlePickImportFile} />
         </div>
-        <div className={`${isGuest ? '' : 'border-b border-[#f5f3ef]'} last:border-b-0`}>
+        <div className="last:border-b-0">
           <ListRow icon={<Download size={16} strokeWidth={2.2} />} label="导出记录" onClick={handleExport} />
         </div>
-        {!isGuest ? (
-          <div>
-            <ListRow icon={<RefreshCw size={16} strokeWidth={2.2} />} label="手动同步云端" onClick={onSync} />
-          </div>
-        ) : null}
       </div>
 
       <div className="px-6 pt-4 pb-2 text-sm font-medium text-gray-400">关于与系统</div>

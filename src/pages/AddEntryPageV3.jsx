@@ -205,7 +205,7 @@ export default function AddEntryPageV3({ onSave, onQueueAiTask, onToast, onGener
       <button
         onClick={handleSave}
         disabled={!emotion || isSaving}
-        className="mb-8 w-full rounded-[20px] border-0 bg-gradient-to-br from-[#a08ff0] to-[#c47bbf] py-4 text-[16px] font-medium text-white shadow-sm transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+        className="mb-8 flex w-full items-center justify-center rounded-[20px] border-none bg-gradient-to-br from-[#c8b8f8] via-[#b0a0ee] to-[#c4b2f6] py-4 text-base font-medium text-white shadow-[inset_0_1.5px_0_rgba(255,255,255,0.5),_0_3px_10px_rgba(160,143,240,0.28)] transition-all active:scale-95 active:opacity-90 disabled:opacity-50"
       >
         {isSaving ? '保存中...' : '保存这次心情'}
       </button>

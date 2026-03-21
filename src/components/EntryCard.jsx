@@ -68,14 +68,14 @@ export default function EntryCard({
       onTouchMove={onClearLongPress}
     >
       <div className="flex items-start gap-3">
-        <MoodAvatar emoji={moodEmoji} className="h-10 w-10 shrink-0 !bg-[#f0eeff] text-xl" />
+        <MoodAvatar emoji={moodEmoji} className="h-10 w-10 shrink-0 !bg-[#f5f4f0] text-xl" />
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="truncate text-[17px] font-semibold text-[#1a1814]">{moodLabel}</span>
-                <span className="text-sm text-[#c0b8e8]">✉</span>
+                <span className="ml-1 text-lg text-[#c0b8e8]">✉</span>
               </div>
               <p className="mt-1 text-[13px] text-gray-400">{formatEntryTime(entry)}</p>
             </div>
@@ -130,9 +130,9 @@ export default function EntryCard({
 
           <div className="mt-3 border-t border-[#f0ede8] pt-3">
             <div className="flex gap-3">
-              <span className="text-base leading-none">🌿</span>
+              <span className="text-base leading-none">🌳</span>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium text-[#a08ff0]">树洞回音</p>
+                <p className="text-xs font-medium text-[#1a1814]">树洞回音</p>
                 <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-gray-500">{aiPreview}</p>
               </div>
             </div>
