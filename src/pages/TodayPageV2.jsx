@@ -13,8 +13,8 @@ function getTodayKey() {
 
 function getGreetingLabel() {
   const hour = new Date().getHours()
-  if (hour < 12) return 'GOOD MORNING'
-  if (hour < 18) return 'GOOD AFTERNOON'
+  if (hour >= 6 && hour < 12) return 'GOOD MORNING'
+  if (hour >= 12 && hour < 19) return 'GOOD AFTERNOON'
   return 'GOOD EVENING'
 }
 
@@ -58,6 +58,34 @@ export default function TodayPageV2({ entries, onToggleFavorite, onDeleteEntry }
     return mapped
   }, [todayRecords])
 
+  const moodBadge = useMemo(() => {
+    if (averageMood >= 4) {
+      return {
+        label: '↑ 心情不错',
+        className: 'border-emerald-200 bg-emerald-50 text-emerald-600',
+      }
+    }
+
+    if (averageMood >= 3) {
+      return {
+        label: '→ 情绪平稳',
+        className: 'border-blue-200 bg-blue-50 text-blue-600',
+      }
+    }
+
+    if (averageMood > 0) {
+      return {
+        label: '↓ 有些低落',
+        className: 'border-orange-200 bg-orange-50 text-orange-600',
+      }
+    }
+
+    return {
+      label: '- 暂无记录',
+      className: 'border-gray-200 bg-gray-50 text-gray-400',
+    }
+  }, [averageMood])
+
   const clearLongPress = () => {
     if (!longPressTimerRef.current) return
     window.clearTimeout(longPressTimerRef.current)
@@ -84,7 +112,7 @@ export default function TodayPageV2({ entries, onToggleFavorite, onDeleteEntry }
   }
 
   return (
-    <div className="-mx-4 -mt-6 min-h-screen bg-[#f7f6f2] px-4 pt-6 pb-10">
+    <div className="-mx-4 -mt-6 min-h-screen bg-[#f7f6f2] px-4 pt-6 pb-28">
       <div className="px-1">
         <p className="mb-1 text-[11px] tracking-[0.32em] text-gray-400">{getGreetingLabel()}</p>
         <h1 className="text-3xl font-serif font-bold text-gray-900">今天</h1>
@@ -101,16 +129,8 @@ export default function TodayPageV2({ entries, onToggleFavorite, onDeleteEntry }
             </div>
           </div>
 
-          <span
-            className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium ${
-              averageMood >= 4
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-600'
-                : averageMood >= 3
-                  ? 'border-sky-200 bg-sky-50 text-sky-600'
-                  : 'border-orange-200 bg-orange-50 text-orange-600'
-            }`}
-          >
-            {averageMood >= 4 ? '状态明亮' : averageMood >= 3 ? '平稳流动' : '↓ 有些低落'}
+          <span className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium ${moodBadge.className}`}>
+            {moodBadge.label}
           </span>
         </div>
 

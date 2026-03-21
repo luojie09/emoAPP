@@ -161,7 +161,7 @@ export default function HistoryPageV2({ entries, onToggleFavorite, onDeleteEntry
   }, [])
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[#f7f6f2]">
+    <div className="flex min-h-screen flex-1 flex-col overflow-hidden bg-[#f7f6f2]">
       <div className="shrink-0 px-4 pt-3 pb-4">
         <h1 className="text-3xl font-serif font-bold text-[#1a1814]">历史记录</h1>
         <p className="mt-2 text-sm text-gray-400">共 {sortedEntries.length} 条记录</p>

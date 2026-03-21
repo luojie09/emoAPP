@@ -41,13 +41,6 @@ function compressImageToBase64(file) {
   })
 }
 
-function getGreetingLabel() {
-  const hour = new Date().getHours()
-  if (hour < 12) return 'GOOD MORNING'
-  if (hour < 18) return 'GOOD AFTERNOON'
-  return 'GOOD EVENING'
-}
-
 function formatCurrentDate() {
   const date = new Date()
   const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
@@ -151,9 +144,8 @@ export default function AddEntryPageV3({ onSave, onQueueAiTask, onToast, onGener
   }
 
   return (
-    <div className="-mx-4 -mt-5 min-h-screen overflow-y-auto bg-[#f7f6f2] px-4 pt-6 pb-8 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+    <div className="-mx-4 -mt-5 min-h-screen overflow-y-auto bg-[#f7f6f2] px-4 pt-6 pb-28 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
       <div className="mb-5 px-1">
-        <p className="mb-1 text-[11px] tracking-[0.32em] text-gray-400">{getGreetingLabel()}</p>
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(-1)}

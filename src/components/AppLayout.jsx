@@ -11,7 +11,7 @@ function TabButton({ label, active, onClick, children }) {
 
 export default function AppLayout({ children, currentTab, onTabChange }) {
   return (
-    <div className="mx-auto min-h-screen max-w-md bg-[#f2f2f7]">
+    <div className="mx-auto min-h-screen max-w-md bg-[#f7f6f2]">
       <main className="px-4 pb-28 pt-6">{children}</main>
       <nav className="fixed bottom-0 left-1/2 w-full max-w-md -translate-x-1/2 border-t border-[#E5E5EA] bg-white/80 backdrop-blur-xl">
         <div className="grid grid-cols-3 px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
