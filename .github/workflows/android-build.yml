@@ -1,4 +1,4 @@
-name: Build Android APK
+﻿name: Build Android APK
 
 # 触发条件：当代码推送到 main 分支，或者在 GitHub 网页上手动点击时触发
 on:
@@ -31,10 +31,12 @@ jobs:
 
       - name: 🏗️ 编译前端代码 (注入 App 环境变量)
         # 注意：这里调用的是我们之前配置好的分离打包命令
-        run: npm run build:app 
+        run: npm run build:app
 
       - name: 🔄 同步代码到安卓工程
-        run: npx cap sync android
+        run: |
+          npm install -g @capacitor/cli
+          npx @capacitor/cli sync android
 
       - name: 🔨 编译生成 Android APK
         working-directory: ./android
