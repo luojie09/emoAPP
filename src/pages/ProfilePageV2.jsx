@@ -102,7 +102,7 @@ export default function ProfilePageV2({
   const avatarUrl = !isGuest ? userProfile?.avatar_url : ''
 
   return (
-    <div className="-mx-4 -mt-6 min-h-screen overflow-y-auto bg-[#f7f6f2] px-4 pt-6 pb-28 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+    <div className="-mx-4 min-h-screen overflow-y-auto bg-[#f7f6f2] px-4 pt-[max(env(safe-area-inset-top),_24px)] pb-[calc(env(safe-area-inset-bottom)+100px)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
       <div className="px-5 pt-0 pb-4">
         <h1 className="text-3xl font-serif font-bold text-[#1a1814]">我的</h1>
       </div>
@@ -201,3 +201,5 @@ export default function ProfilePageV2({
     </div>
   )
 }
+
+

@@ -112,7 +112,7 @@ export default function TodayPageV2({ entries, onToggleFavorite, onDeleteEntry }
   }
 
   return (
-    <div className="-mx-4 -mt-6 min-h-screen bg-[#f7f6f2] px-4 pt-6 pb-28">
+    <div className="-mx-4 min-h-screen bg-[#f7f6f2] px-4 pt-[max(env(safe-area-inset-top),_24px)] pb-[calc(env(safe-area-inset-bottom)+100px)]">
       <div className="px-1">
         <p className="mb-1 text-[11px] tracking-[0.32em] text-gray-400">{getGreetingLabel()}</p>
         <h1 className="text-3xl font-serif font-bold text-gray-900">今天</h1>
@@ -256,3 +256,5 @@ export default function TodayPageV2({ entries, onToggleFavorite, onDeleteEntry }
     </div>
   )
 }
+
+

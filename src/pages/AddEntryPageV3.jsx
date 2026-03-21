@@ -144,7 +144,7 @@ export default function AddEntryPageV3({ onSave, onQueueAiTask, onToast, onGener
   }
 
   return (
-    <div className="-mx-4 -mt-5 min-h-screen overflow-y-auto bg-[#f7f6f2] px-4 pt-6 pb-28 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+    <div className="-mx-4 -mt-5 min-h-screen overflow-y-auto bg-[#f7f6f2] px-4 pt-[max(env(safe-area-inset-top),_24px)] pb-[calc(env(safe-area-inset-bottom)+100px)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
       <div className="mb-5 px-1">
         <div className="flex items-center gap-3">
           <button
@@ -212,3 +212,4 @@ export default function AddEntryPageV3({ onSave, onQueueAiTask, onToast, onGener
     </div>
   )
 }
+

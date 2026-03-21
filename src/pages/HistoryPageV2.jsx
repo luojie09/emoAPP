@@ -162,7 +162,7 @@ export default function HistoryPageV2({ entries, onToggleFavorite, onDeleteEntry
 
   return (
     <div className="flex min-h-screen flex-1 flex-col overflow-hidden bg-[#f7f6f2]">
-      <div className="shrink-0 px-4 pt-3 pb-4">
+      <div className="shrink-0 px-4 pt-[max(env(safe-area-inset-top),_24px)] pb-4">
         <h1 className="text-3xl font-serif font-bold text-[#1a1814]">历史记录</h1>
         <p className="mt-2 text-sm text-gray-400">共 {sortedEntries.length} 条记录</p>
 
@@ -190,7 +190,7 @@ export default function HistoryPageV2({ entries, onToggleFavorite, onDeleteEntry
         <div
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="h-full min-h-0 overflow-y-auto pb-28 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          className="h-full min-h-0 overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+100px)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         >
           {visibleEntries.length ? (
             <div className="px-0 pb-4">
@@ -258,3 +258,5 @@ export default function HistoryPageV2({ entries, onToggleFavorite, onDeleteEntry
     </div>
   )
 }
+
+
