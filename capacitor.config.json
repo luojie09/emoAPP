@@ -1,0 +1,5 @@
+{
+  "appId": "com.emoapp.app",
+  "appName": "Emotion Tracker",
+  "webDir": "dist"
+}
