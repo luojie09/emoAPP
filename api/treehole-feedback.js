@@ -18,7 +18,9 @@ function extractAiText(payload) {
       .join('')
       .trim()
   }
-  return ''
+
+  const fallback = payload?.choices?.[0]?.message?.reasoning_content ?? payload?.reasoning_content
+  return typeof fallback === 'string' ? fallback.trim() : ''
 }
 
 export default async function handler(req, res) {
