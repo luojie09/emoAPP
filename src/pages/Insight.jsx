@@ -1,42 +1,30 @@
-import { useMemo } from 'react'
+﻿import { useMemo } from 'react'
 import EmotionalTide from '../components/EmotionalTide'
 import WordPoem from '../components/WordPoem'
 
-const ENERGY_FALLBACK_WORDS = [
-  { word: '阳光', weight: 5 },
-  { word: '咖啡', weight: 4 },
-  { word: '散步', weight: 3 },
-  { word: '顺利', weight: 4 },
-  { word: '温柔', weight: 5 },
-  { word: '安静', weight: 3 },
-  { word: '朋友', weight: 4 },
-  { word: '好吃', weight: 2 },
-  { word: '完成', weight: 4 },
-  { word: '呼吸', weight: 2 },
-  { word: '微风', weight: 3 },
-  { word: '放松', weight: 5 },
-  { word: '清晨', weight: 3 },
-  { word: '开心', weight: 4 },
-  { word: '轻盈', weight: 2 },
-]
-
-const HEALING_FALLBACK_WORDS = [
-  { word: '疲惫', weight: 5 },
-  { word: '边界', weight: 4 },
-  { word: '雨夜', weight: 3 },
-  { word: '沉默', weight: 4 },
-  { word: '焦虑', weight: 5 },
-  { word: '委屈', weight: 4 },
-  { word: '失眠', weight: 3 },
-  { word: '拉扯', weight: 4 },
-  { word: '压力', weight: 5 },
-  { word: '无力', weight: 4 },
-  { word: '停顿', weight: 2 },
-  { word: '释怀', weight: 3 },
-  { word: '回家', weight: 2 },
-  { word: '拥抱', weight: 3 },
-  { word: '修补', weight: 4 },
-]
+const STOP_WORDS = new Set([
+  '今天',
+  '感觉',
+  '自己',
+  '有点',
+  '真的',
+  '还是',
+  '一个',
+  '一些',
+  '因为',
+  '所以',
+  '然后',
+  '已经',
+  '就是',
+  '不是',
+  '这样',
+  '那个',
+  '这个',
+  '事情',
+  '时候',
+  '我们',
+  '你们',
+])
 
 function InsightSectionTitle({ title }) {
   return (
@@ -51,55 +39,59 @@ function getEntryScore(entry) {
   return Number(entry?.emotion?.score ?? entry?.score ?? 3)
 }
 
-function getEntryText(entry) {
-  return [entry?.note, entry?.emotion?.label, entry?.mood].filter((value) => typeof value === 'string' && value.trim()).join(' ')
-}
-
-function countKeyword(source, keyword) {
-  if (!source || !keyword) return 0
-  return source.split(keyword).length - 1
-}
-
-function deriveWordWeights(entries, fallbackWords, matcher) {
-  const scopedEntries = (entries ?? []).filter(matcher)
-  const source = scopedEntries.map(getEntryText).join(' ')
-
-  const matchedWords = fallbackWords
-    .map((item) => {
-      const hits = countKeyword(source, item.word)
-      if (!hits) return null
-
-      return {
-        word: item.word,
-        weight: Math.min(5, item.weight + hits),
-      }
-    })
-    .filter(Boolean)
-    .sort((left, right) => right.weight - left.weight)
-
-  if (matchedWords.length >= 8) {
-    return matchedWords.slice(0, 15)
+function extractCandidateWords(entry) {
+  const rawSegments = []
+  const label = entry?.emotion?.label ?? entry?.mood
+  if (typeof label === 'string' && label.trim()) {
+    rawSegments.push(label.trim())
   }
 
-  if (!scopedEntries.length) return fallbackWords
+  const note = typeof entry?.note === 'string' ? entry.note : ''
+  if (note.trim()) {
+    rawSegments.push(
+      ...note
+        .split(/[，。！？、；：,.!?\s\n\r]+/)
+        .map((segment) => segment.trim())
+        .filter(Boolean),
+    )
+  }
 
-  const bonus = Math.min(2, Math.max(1, Math.floor(scopedEntries.length / 3)))
-  return fallbackWords.map((item, index) => ({
-    ...item,
-    weight: Math.min(5, item.weight + (index < 6 ? bonus : 0)),
-  }))
+  return rawSegments
+    .map((segment) => segment.replace(/[^\u4e00-\u9fa5A-Za-z]/g, '').trim())
+    .filter((segment) => {
+      if (!segment) return false
+      if (STOP_WORDS.has(segment)) return false
+      if (/^[A-Za-z]+$/.test(segment)) return segment.length >= 3 && segment.length <= 12
+      return segment.length >= 2 && segment.length <= 6
+    })
+}
+
+function buildWordWeights(entries, matcher) {
+  const scopedEntries = (entries ?? []).filter(matcher)
+  const counter = new Map()
+
+  for (const entry of scopedEntries) {
+    const words = extractCandidateWords(entry)
+    for (const word of words) {
+      counter.set(word, (counter.get(word) ?? 0) + 1)
+    }
+  }
+
+  return [...counter.entries()]
+    .sort((left, right) => {
+      if (right[1] !== left[1]) return right[1] - left[1]
+      return left[0].localeCompare(right[0], 'zh-CN')
+    })
+    .slice(0, 15)
+    .map(([word, count]) => ({
+      word,
+      weight: Math.min(5, Math.max(1, count + 1)),
+    }))
 }
 
 export default function InsightPage({ entries }) {
-  const energyWords = useMemo(
-    () => deriveWordWeights(entries, ENERGY_FALLBACK_WORDS, (entry) => getEntryScore(entry) >= 4),
-    [entries],
-  )
-
-  const healingWords = useMemo(
-    () => deriveWordWeights(entries, HEALING_FALLBACK_WORDS, (entry) => getEntryScore(entry) <= 3),
-    [entries],
-  )
+  const energyWords = useMemo(() => buildWordWeights(entries, (entry) => getEntryScore(entry) >= 4), [entries])
+  const healingWords = useMemo(() => buildWordWeights(entries, (entry) => getEntryScore(entry) <= 3), [entries])
 
   return (
     <div className="-mx-4 min-h-screen overflow-y-auto bg-[#f7f6f2] px-4 pt-[max(env(safe-area-inset-top),_24px)] pb-[calc(env(safe-area-inset-bottom)+100px)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">

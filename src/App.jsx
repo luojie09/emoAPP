@@ -34,7 +34,9 @@ function rowToEntry(row) {
 const GUEST_ENTRIES_KEY = 'guest_entries'
 const PENDING_AI_TASKS_KEY = 'pending_ai_tasks'
 const AI_FEEDBACK_OVERRIDES_KEY = 'ai_feedback_overrides'
-const AI_REQUEST_TIMEOUT_MS = 45000
+const AI_REQUEST_TIMEOUT_MS = 120000
+const AI_RETRY_BASE_DELAY_MS = 15000
+const AI_RETRY_MAX_DELAY_MS = 5 * 60 * 1000
 const MIN_AI_FEEDBACK_CHARS = 60
 
 function normalizeUserProfile(profile) {
@@ -78,7 +80,18 @@ function readPendingAiTasks() {
 
   try {
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
+    if (!Array.isArray(parsed)) return []
+
+    return parsed
+      .map((task) => ({
+        entryId: task?.entryId,
+        text: typeof task?.text === 'string' ? task.text : '',
+        score: Number(task?.score ?? 3),
+        emotionLabel: typeof task?.emotionLabel === 'string' ? task.emotionLabel : '',
+        attemptCount: Number.isFinite(Number(task?.attemptCount)) ? Number(task.attemptCount) : 0,
+        nextRetryAt: Number.isFinite(Number(task?.nextRetryAt)) ? Number(task.nextRetryAt) : 0,
+      }))
+      .filter((task) => task.entryId && task.text)
   } catch {
     return []
   }
@@ -86,6 +99,10 @@ function readPendingAiTasks() {
 
 function writePendingAiTasks(tasks) {
   localStorage.setItem(PENDING_AI_TASKS_KEY, JSON.stringify(tasks))
+}
+
+function getNextAiRetryDelay(attemptCount) {
+  return Math.min(AI_RETRY_MAX_DELAY_MS, AI_RETRY_BASE_DELAY_MS * 2 ** Math.max(0, attemptCount))
 }
 
 function readAiFeedbackOverrides() {
@@ -284,6 +301,7 @@ export default function App() {
   const location = useLocation()
   const navigate = useNavigate()
   const pendingAiProcessorRef = useRef(false)
+  const aiInFlightRef = useRef(new Set())
   const [entries, setEntries] = useState([])
   const [userProfile, setUserProfile] = useState(null)
   const [toastMessage, setToastMessage] = useState('')
@@ -503,8 +521,16 @@ export default function App() {
   const enqueuePendingAiTask = (task) => {
     if (!task?.entryId || !task?.text) return
     const existing = readPendingAiTasks()
+    const currentTask = existing.find((item) => String(item.entryId) === String(task.entryId))
     const deduped = existing.filter((item) => String(item.entryId) !== String(task.entryId))
-    deduped.push(task)
+    deduped.push({
+      entryId: task.entryId,
+      text: task.text,
+      score: Number(task?.score ?? currentTask?.score ?? 3),
+      emotionLabel: task?.emotionLabel ?? currentTask?.emotionLabel ?? '',
+      attemptCount: currentTask?.attemptCount ?? 0,
+      nextRetryAt: currentTask?.nextRetryAt ?? 0,
+    })
     writePendingAiTasks(deduped)
   }
 
@@ -513,12 +539,31 @@ export default function App() {
     writePendingAiTasks(next)
   }
 
+  const schedulePendingAiRetry = (entryId) => {
+    if (!entryId) return
+    const next = readPendingAiTasks().map((item) => {
+      if (String(item.entryId) !== String(entryId)) return item
+      const attemptCount = Number(item?.attemptCount ?? 0) + 1
+      return {
+        ...item,
+        attemptCount,
+        nextRetryAt: Date.now() + getNextAiRetryDelay(attemptCount),
+      }
+    })
+    writePendingAiTasks(next)
+  }
+
   const generateAndSaveAIFeedback = async (newEntryId, text, score, emotionLabel = '') => {
+    const taskKey = String(newEntryId ?? '')
+    if (!taskKey) return 'fatal'
+    if (aiInFlightRef.current.has(taskKey)) return 'inflight'
+    aiInFlightRef.current.add(taskKey)
+
     try {
       const normalizedText = typeof text === 'string' ? text.trim() : ''
       if (!newEntryId || !normalizedText) {
         removePendingAiTask(newEntryId)
-        return false
+        return 'fatal'
       }
 
       let resolvedUserName = userProfile?.nickname?.trim() || ''
@@ -547,8 +592,7 @@ export default function App() {
         userName: resolvedUserName || '朋友',
       })
       if (!generatedText) {
-        removePendingAiTask(newEntryId)
-        return false
+        return 'retry'
       }
 
       if (isGuest) {
@@ -559,12 +603,11 @@ export default function App() {
         writeGuestEntries(next)
         setEntries(next)
         removePendingAiTask(newEntryId)
-        return true
+        return 'success'
       }
 
       if (!session?.user) {
-        removePendingAiTask(newEntryId)
-        return false
+        return 'retry'
       }
 
       const updateAiFeedback = async (content) =>
@@ -597,7 +640,7 @@ export default function App() {
           prev.map((entry) => (String(entry.id) === String(newEntryId) ? { ...entry, ai_feedback: feedbackToSave } : entry)),
         )
         removePendingAiTask(newEntryId)
-        return true
+        return 'success'
       }
 
       if (!data) {
@@ -610,7 +653,7 @@ export default function App() {
           prev.map((entry) => (String(entry.id) === String(newEntryId) ? { ...entry, ai_feedback: feedbackToSave } : entry)),
         )
         removePendingAiTask(newEntryId)
-        return true
+        return 'success'
       }
 
       removeAiFeedbackOverride(newEntryId)
@@ -619,11 +662,12 @@ export default function App() {
       )
       removePendingAiTask(newEntryId)
       void fetchCloudEntries()
-      return true
+      return 'success'
     } catch (error) {
       console.error('generateAndSaveAIFeedback failed:', error)
-      removePendingAiTask(newEntryId)
-      return false
+      return 'retry'
+    } finally {
+      aiInFlightRef.current.delete(taskKey)
     }
   }
 
@@ -659,14 +703,20 @@ export default function App() {
   useEffect(() => {
     const processPendingAiTasks = async () => {
       if (pendingAiProcessorRef.current) return
-      const tasks = readPendingAiTasks()
+      const now = Date.now()
+      const tasks = readPendingAiTasks().filter((task) => !task.nextRetryAt || task.nextRetryAt <= now)
       if (!tasks.length) return
 
       pendingAiProcessorRef.current = true
 
       try {
         for (const task of tasks) {
-          await generateAndSaveAIFeedback(task.entryId, task.text, task.score, task.emotionLabel)
+          const result = await generateAndSaveAIFeedback(task.entryId, task.text, task.score, task.emotionLabel)
+          if (result === 'fatal') {
+            removePendingAiTask(task.entryId)
+          } else if (result === 'retry') {
+            schedulePendingAiRetry(task.entryId)
+          }
         }
       } finally {
         pendingAiProcessorRef.current = false

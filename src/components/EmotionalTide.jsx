@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 
 function clamp(value, min, max) {
@@ -91,7 +91,6 @@ function buildTideSeries(entries, days) {
     points.push({
       label: formatAxisLabel(date),
       value: Number(clamp(value, 1, 5).toFixed(2)),
-      isReal: Boolean(bucket?.count),
     })
   }
 
@@ -148,7 +147,7 @@ export default function EmotionalTide({ entries }) {
 
       <div className="mt-6 h-[220px]">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={tideData} margin={{ top: 16, right: 8, left: 8, bottom: 8 }}>
+          <AreaChart data={tideData} margin={{ left: 15, right: 15, top: 10, bottom: 0 }}>
             <defs>
               <linearGradient id={`tide-gradient-${range}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="rgba(160,143,240,0.2)" stopOpacity={1} />
@@ -161,6 +160,7 @@ export default function EmotionalTide({ entries }) {
               tickLine={false}
               tickMargin={16}
               interval={range === 30 ? 4 : 0}
+              padding={{ left: 4, right: 4 }}
               tick={{ fill: '#d2cdc5', fontSize: 12 }}
             />
             <YAxis domain={[1, 5]} hide />
@@ -170,7 +170,7 @@ export default function EmotionalTide({ entries }) {
               stroke="#a08ff0"
               strokeWidth={3}
               fill={`url(#tide-gradient-${range})`}
-              dot={{ r: 4.5, fill: '#ffffff', stroke: '#a08ff0', strokeWidth: 2 }}
+              dot={false}
               activeDot={false}
             />
           </AreaChart>

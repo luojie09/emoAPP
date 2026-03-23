@@ -1,4 +1,4 @@
-import { Clock3, Home, User, Waves } from 'lucide-react'
+锘縤mport { Clock3, Home, User, Waves } from 'lucide-react'
 
 function TabButton({ label, active, onClick, children }) {
   return (
@@ -15,16 +15,16 @@ export default function AppLayout({ children, currentTab, onTabChange }) {
       <main className="px-4">{children}</main>
       <nav className="fixed bottom-0 left-0 z-50 w-full border-t border-[#f0ede8] bg-white/80 backdrop-blur-xl">
         <div className="mx-auto grid max-w-md grid-cols-4 px-2 pt-2 pb-[max(env(safe-area-inset-bottom),_20px)]">
-          <TabButton label="今天" active={currentTab === 'today'} onClick={() => onTabChange?.('today')}>
+          <TabButton label="浠婂ぉ" active={currentTab === 'today'} onClick={() => onTabChange?.('today')}>
             <Home size={22} strokeWidth={2} />
           </TabButton>
-          <TabButton label="历史" active={currentTab === 'history'} onClick={() => onTabChange?.('history')}>
+          <TabButton label="鍘嗗彶" active={currentTab === 'history'} onClick={() => onTabChange?.('history')}>
             <Clock3 size={22} strokeWidth={2} />
           </TabButton>
-          <TabButton label="潮汐" active={currentTab === 'insight'} onClick={() => onTabChange?.('insight')}>
+          <TabButton label="娼睈" active={currentTab === 'insight'} onClick={() => onTabChange?.('insight')}>
             <Waves size={22} strokeWidth={2} />
           </TabButton>
-          <TabButton label="我的" active={currentTab === 'profile'} onClick={() => onTabChange?.('profile')}>
+          <TabButton label="鎴戠殑" active={currentTab === 'profile'} onClick={() => onTabChange?.('profile')}>
             <User size={22} strokeWidth={2} />
           </TabButton>
         </div>
@@ -32,6 +32,3 @@ export default function AppLayout({ children, currentTab, onTabChange }) {
     </div>
   )
 }
-
-
-

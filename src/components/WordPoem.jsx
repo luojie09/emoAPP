@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 
 function chunkWords(words, chunkSize = 5) {
   const rows = []
@@ -37,6 +37,7 @@ export default function WordPoem({ energyWords = [], healingWords = [] }) {
 
   const currentWords = activeTab === 'energy' ? energyWords : healingWords
   const rows = useMemo(() => chunkWords(currentWords, 5), [currentWords])
+  const isEmpty = !currentWords.length
 
   return (
     <div className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
@@ -67,23 +68,31 @@ export default function WordPoem({ energyWords = [], healingWords = [] }) {
         {activeTab === 'energy' ? '你的能量源泉 · 过去 30 天' : '那些需要被轻轻安放的情绪 · 过去 30 天'}
       </div>
 
-      <div className="mt-6 space-y-4 text-center leading-loose">
-        {rows.map((row, rowIndex) => (
-          <div key={`${activeTab}-row-${rowIndex}`} className="flex flex-wrap items-end justify-center gap-x-3 gap-y-2">
-            {row.map((item) => (
-              <span
-                key={`${activeTab}-${item.word}`}
-                className={`inline-block whitespace-nowrap ${getWeightClass(item.weight)} ${getToneClass(
-                  item.weight,
-                  activeTab,
-                )}`}
-              >
-                {item.word}
-              </span>
-            ))}
-          </div>
-        ))}
-      </div>
+      {isEmpty ? (
+        <div className="py-8 text-center text-sm font-serif tracking-wide text-gray-400">
+          去记录吧，
+          <br />
+          树洞会用心听你的低语...
+        </div>
+      ) : (
+        <div className="mt-6 space-y-4 text-center leading-loose">
+          {rows.map((row, rowIndex) => (
+            <div key={`${activeTab}-row-${rowIndex}`} className="flex flex-wrap items-end justify-center gap-x-3 gap-y-2">
+              {row.map((item) => (
+                <span
+                  key={`${activeTab}-${item.word}`}
+                  className={`inline-block whitespace-nowrap ${getWeightClass(item.weight)} ${getToneClass(
+                    item.weight,
+                    activeTab,
+                  )}`}
+                >
+                  {item.word}
+                </span>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
