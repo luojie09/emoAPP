@@ -5,11 +5,10 @@ function cleanEnvValue(value) {
     .replace(/^\[|\]$/g, '')
 }
 
-function extractAiText(payload) {
-  const primary = payload?.choices?.[0]?.message?.content
-  if (typeof primary === 'string') return primary.trim()
-  if (Array.isArray(primary)) {
-    return primary
+function normalizeResponseText(value) {
+  if (typeof value === 'string') return value.trim()
+  if (Array.isArray(value)) {
+    return value
       .map((item) => {
         if (typeof item === 'string') return item
         if (item && typeof item === 'object' && typeof item.text === 'string') return item.text
@@ -18,9 +17,23 @@ function extractAiText(payload) {
       .join('')
       .trim()
   }
+  if (value && typeof value === 'object' && typeof value.text === 'string') {
+    return value.text.trim()
+  }
+  return ''
+}
+
+function extractAiText(payload) {
+  const primary = payload?.choices?.[0]?.message?.content
+  const normalizedPrimary = normalizeResponseText(primary)
+  if (normalizedPrimary) return normalizedPrimary
 
   const fallback = payload?.choices?.[0]?.message?.reasoning_content ?? payload?.reasoning_content
-  return typeof fallback === 'string' ? fallback.trim() : ''
+  const normalizedFallback = normalizeResponseText(fallback)
+  if (normalizedFallback) return normalizedFallback
+
+  const nestedFallback = payload?.choices?.[0]?.delta?.content ?? payload?.choices?.[0]?.delta?.reasoning_content
+  return normalizeResponseText(nestedFallback)
 }
 
 export default async function handler(req, res) {

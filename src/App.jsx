@@ -543,7 +543,10 @@ export default function App() {
         content: normalizedText,
         userName: resolvedUserName || '朋友',
       })
-      if (!generatedText) return false
+      if (!generatedText) {
+        removePendingAiTask(newEntryId)
+        return false
+      }
 
       if (isGuest) {
         const localEntries = readGuestEntries()
@@ -556,7 +559,10 @@ export default function App() {
         return true
       }
 
-      if (!session?.user) return false
+      if (!session?.user) {
+        removePendingAiTask(newEntryId)
+        return false
+      }
 
       const updateAiFeedback = async (content) =>
         supabase
@@ -613,6 +619,7 @@ export default function App() {
       return true
     } catch (error) {
       console.error('generateAndSaveAIFeedback failed:', error)
+      removePendingAiTask(newEntryId)
       return false
     }
   }
