@@ -7,6 +7,7 @@ import AuthPage from './pages/AuthPage'
 import DayListPage from './pages/DayListPage'
 import EntryDetailPage from './pages/EntryDetailPageV2'
 import HistoryPage from './pages/HistoryPageV2'
+import InsightPage from './pages/Insight'
 import ProfilePage from './pages/ProfilePageV2'
 import TodayPage from './pages/TodayPageV2'
 import { getLocalDateTimeParts, groupEntriesByDay, readEntries } from './utils'
@@ -156,6 +157,7 @@ function cleanupSyncedAiFeedbackOverrides(entries) {
 
 function getTabFromPath(pathname) {
   if (pathname.startsWith('/history')) return 'history'
+  if (pathname.startsWith('/insight')) return 'insight'
   if (pathname.startsWith('/profile')) return 'profile'
   return 'today'
 }
@@ -426,6 +428,7 @@ export default function App() {
     setCurrentTab(tab)
     if (tab === 'today') navigate('/')
     if (tab === 'history') navigate('/history')
+    if (tab === 'insight') navigate('/insight')
     if (tab === 'profile') navigate('/profile')
   }
 
@@ -837,6 +840,7 @@ export default function App() {
                 />
               }
             />
+            <Route path="/insight" element={<InsightPage entries={entries} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AppLayout>
