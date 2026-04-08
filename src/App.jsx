@@ -28,16 +28,53 @@ function rowToEntry(row) {
     image: row.image_url ?? '',
     isFavorite: Boolean(row.is_favorite),
     ai_feedback: row.ai_feedback ?? '',
+    ai_keywords: normalizeAiKeywords(row.ai_keywords ?? row.keywords ?? []),
   }
 }
 
 const GUEST_ENTRIES_KEY = 'guest_entries'
 const PENDING_AI_TASKS_KEY = 'pending_ai_tasks'
 const AI_FEEDBACK_OVERRIDES_KEY = 'ai_feedback_overrides'
+const AI_KEYWORDS_OVERRIDES_KEY = 'ai_keywords_overrides'
 const AI_REQUEST_TIMEOUT_MS = 120000
 const AI_RETRY_BASE_DELAY_MS = 15000
 const AI_RETRY_MAX_DELAY_MS = 5 * 60 * 1000
 const MIN_AI_FEEDBACK_CHARS = 60
+
+function normalizeAiKeywordItem(item) {
+  if (!item || typeof item !== 'object') return null
+
+  const word = typeof item.word === 'string' ? item.word.trim() : ''
+  const type = item.type === 'negative' ? 'negative' : item.type === 'positive' ? 'positive' : ''
+  if (!word || !type) return null
+
+  const cleanedWord = word.replace(/[^\u4e00-\u9fa5A-Za-z]/g, '').trim()
+  if (!cleanedWord || cleanedWord.length < 2 || cleanedWord.length > 4) return null
+
+  const blacklist = ['图片', '视频', '分享', 'jpeg', 'jpg', 'png', 'gif', '链接']
+  if (blacklist.includes(cleanedWord.toLowerCase())) return null
+
+  return { word: cleanedWord, type }
+}
+
+function normalizeAiKeywords(value) {
+  if (!Array.isArray(value)) return []
+
+  const seen = new Set()
+  const normalized = []
+
+  for (const item of value) {
+    const keyword = normalizeAiKeywordItem(item)
+    if (!keyword) continue
+    const dedupeKey = `${keyword.type}:${keyword.word}`
+    if (seen.has(dedupeKey)) continue
+    seen.add(dedupeKey)
+    normalized.push(keyword)
+    if (normalized.length >= 2) break
+  }
+
+  return normalized
+}
 
 function normalizeUserProfile(profile) {
   return {
@@ -121,6 +158,22 @@ function writeAiFeedbackOverrides(overrides) {
   localStorage.setItem(AI_FEEDBACK_OVERRIDES_KEY, JSON.stringify(overrides))
 }
 
+function readAiKeywordsOverrides() {
+  const raw = localStorage.getItem(AI_KEYWORDS_OVERRIDES_KEY)
+  if (!raw) return {}
+
+  try {
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeAiKeywordsOverrides(overrides) {
+  localStorage.setItem(AI_KEYWORDS_OVERRIDES_KEY, JSON.stringify(overrides))
+}
+
 function setAiFeedbackOverride(entryId, aiFeedback) {
   if (!entryId) return
   const normalized = typeof aiFeedback === 'string' ? aiFeedback.trim() : ''
@@ -139,18 +192,43 @@ function removeAiFeedbackOverride(entryId) {
   writeAiFeedbackOverrides(overrides)
 }
 
+function setAiKeywordsOverride(entryId, keywords) {
+  if (!entryId) return
+  const normalized = normalizeAiKeywords(keywords)
+  if (!normalized.length) return
+  const overrides = readAiKeywordsOverrides()
+  overrides[String(entryId)] = normalized
+  writeAiKeywordsOverrides(overrides)
+}
+
+function removeAiKeywordsOverride(entryId) {
+  if (!entryId) return
+  const key = String(entryId)
+  const overrides = readAiKeywordsOverrides()
+  if (!(key in overrides)) return
+  delete overrides[key]
+  writeAiKeywordsOverrides(overrides)
+}
+
 function applyAiFeedbackOverrides(entries) {
   const overrides = readAiFeedbackOverrides()
-  if (!entries?.length || !Object.keys(overrides).length) return entries
+  const keywordOverrides = readAiKeywordsOverrides()
+  if (!entries?.length || (!Object.keys(overrides).length && !Object.keys(keywordOverrides).length)) return entries
 
   return entries.map((entry) => {
     const key = String(entry.id)
     const overrideValue = overrides[key]
     const cloudValue = typeof entry.ai_feedback === 'string' ? entry.ai_feedback.trim() : ''
+    const keywordOverrideValue = normalizeAiKeywords(keywordOverrides[key])
+
+    let nextEntry = entry
     if (typeof overrideValue === 'string' && overrideValue.trim() && !cloudValue) {
-      return { ...entry, ai_feedback: overrideValue }
+      nextEntry = { ...nextEntry, ai_feedback: overrideValue }
     }
-    return entry
+    if (keywordOverrideValue.length && !(Array.isArray(nextEntry.ai_keywords) && nextEntry.ai_keywords.length)) {
+      nextEntry = { ...nextEntry, ai_keywords: keywordOverrideValue }
+    }
+    return nextEntry
   })
 }
 
@@ -202,6 +280,55 @@ function extractAiText(payload) {
   }
 
   return normalized || null
+}
+
+function parseAiResponsePayload(payload) {
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    const directReply = typeof payload.reply === 'string' ? payload.reply.trim() : ''
+    if (directReply) {
+      return {
+        reply: directReply,
+        keywords: normalizeAiKeywords(payload.keywords),
+      }
+    }
+  }
+
+  const rawText = extractAiText(payload)
+  if (!rawText) return { reply: null, keywords: [] }
+
+  const normalizedText = String(rawText)
+    .trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim()
+
+  const tryParse = (value) => {
+    try {
+      return JSON.parse(value)
+    } catch {
+      return null
+    }
+  }
+
+  const parsed =
+    tryParse(normalizedText) ??
+    (() => {
+      const startIndex = normalizedText.indexOf('{')
+      const endIndex = normalizedText.lastIndexOf('}')
+      if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) return null
+      return tryParse(normalizedText.slice(startIndex, endIndex + 1))
+    })()
+
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    const reply = typeof parsed.reply === 'string' ? parsed.reply.trim() : ''
+    return {
+      reply: reply || null,
+      keywords: normalizeAiKeywords(parsed.keywords),
+    }
+  }
+
+  return { reply: normalizedText || null, keywords: [] }
 }
 
 async function requestAiFeedback({ score, emotionLabel, content, userName }) {
@@ -256,6 +383,31 @@ async function requestAiFeedback({ score, emotionLabel, content, userName }) {
 5. 篇幅与结尾：
    - 字数严格控制在 300 - 500 字之间。
    - 在信的最末尾，极其自然地带上且仅带上一个与当前情绪最契合的 emoji（如 🌧️, ☕, 🫂, 🍃, ✨, 🌻）。
+
+【强制输出格式与生活碎片提炼法则】
+你必须且只能返回一个合法的 JSON 格式对象，绝对不要包含任何 Markdown 标记。
+JSON 结构如下：
+{
+  "reply": "这里是你生成的那封300-500字的回信正文",
+  "keywords": [
+    {"word": "词汇1", "type": "positive"},
+    {"word": "词汇2", "type": "negative"}
+  ]
+}
+
+【Keywords 提炼最高准则】（违背将导致系统崩溃！）
+1. 词汇性质（核心变化）：绝对不要提取空泛的情绪词（如“开心”、“难过”）。你必须提取日记中引发该情绪的核心事件、具体事物、或具有画面感的意象。
+   - 示例 1：用户很开心，日记提到去公园感受春天。正确提取 -> {"word": "春日", "type": "positive"}
+   - 示例 2：用户很崩溃，日记提到今天面试搞砸了。正确提取 -> {"word": "面试", "type": "negative"}
+   - 示例 3：用户很平静，日记提到喝了一杯好喝的拿铁。正确提取 -> {"word": "咖啡", "type": "positive"}
+2. 长度与字数：必须严格提炼为 2 到 4 个汉字的精简词汇。绝对禁止提取短语或句子。
+3. 黑名单（绝对禁止提取）：
+   - 彻底屏蔽系统/技术词汇：图片、视频、分享、jpeg、链接等。
+   - 彻底屏蔽口语化废话、代词、动词短语：我想、他想、那么、然后、在这里、哈哈、不管怎么样、觉得好累等。
+4. 分类依据（基于该事物在日记中带给用户的感受）：
+   - "positive"（能量源泉）：在日记中带给用户治愈、美好、希望、力量的事物/事件。
+   - "negative"（需要和解）：在日记中给用户带来压力、挫败、消耗、焦虑的事物/事件。
+5. 数量：每次最多只提炼 1 到 2 个最核心的生活碎片词汇，宁缺毋滥。如果没有具体的具象词，可以返回空数组 []。
 `
 
   const userPrompt = `请基于以上内容写一封回信。当前情绪标签：${emotionLabel || '无'}`
@@ -285,8 +437,8 @@ async function requestAiFeedback({ score, emotionLabel, content, userName }) {
     }
 
     const json = await proxyResponse.json()
-    const normalized = extractAiText(json)
-    if (!normalized) {
+    const normalized = parseAiResponsePayload(json)
+    if (!normalized.reply) {
       console.error('AI proxy response was empty:', json)
     }
     return normalized
@@ -585,12 +737,15 @@ export default function App() {
         }
       }
 
-      const generatedText = await requestAiFeedback({
+      const aiResult = await requestAiFeedback({
         score: Number(score ?? 3),
         emotionLabel,
         content: normalizedText,
         userName: resolvedUserName || '朋友',
       })
+      const generatedText = typeof aiResult?.reply === 'string' ? aiResult.reply.trim() : ''
+      const generatedKeywords = normalizeAiKeywords(aiResult?.keywords)
+
       if (!generatedText) {
         return 'retry'
       }
@@ -598,7 +753,9 @@ export default function App() {
       if (isGuest) {
         const localEntries = readGuestEntries()
         const next = localEntries.map((entry) =>
-          String(entry.id) === String(newEntryId) ? { ...entry, ai_feedback: generatedText } : entry,
+          String(entry.id) === String(newEntryId)
+            ? { ...entry, ai_feedback: generatedText, ai_keywords: generatedKeywords }
+            : entry,
         )
         writeGuestEntries(next)
         setEntries(next)
@@ -636,8 +793,13 @@ export default function App() {
       if (error) {
         console.error('AI feedback update failed:', error)
         setAiFeedbackOverride(newEntryId, feedbackToSave)
+        setAiKeywordsOverride(newEntryId, generatedKeywords)
         setEntries((prev) =>
-          prev.map((entry) => (String(entry.id) === String(newEntryId) ? { ...entry, ai_feedback: feedbackToSave } : entry)),
+          prev.map((entry) =>
+            String(entry.id) === String(newEntryId)
+              ? { ...entry, ai_feedback: feedbackToSave, ai_keywords: generatedKeywords }
+              : entry,
+          ),
         )
         removePendingAiTask(newEntryId)
         return 'success'
@@ -649,16 +811,26 @@ export default function App() {
           userId: session.user.id,
         })
         setAiFeedbackOverride(newEntryId, feedbackToSave)
+        setAiKeywordsOverride(newEntryId, generatedKeywords)
         setEntries((prev) =>
-          prev.map((entry) => (String(entry.id) === String(newEntryId) ? { ...entry, ai_feedback: feedbackToSave } : entry)),
+          prev.map((entry) =>
+            String(entry.id) === String(newEntryId)
+              ? { ...entry, ai_feedback: feedbackToSave, ai_keywords: generatedKeywords }
+              : entry,
+          ),
         )
         removePendingAiTask(newEntryId)
         return 'success'
       }
 
       removeAiFeedbackOverride(newEntryId)
+      setAiKeywordsOverride(newEntryId, generatedKeywords)
       setEntries((prev) =>
-        prev.map((entry) => (String(entry.id) === String(newEntryId) ? { ...entry, ai_feedback: feedbackToSave } : entry)),
+        prev.map((entry) =>
+          String(entry.id) === String(newEntryId)
+            ? { ...entry, ai_feedback: feedbackToSave, ai_keywords: generatedKeywords }
+            : entry,
+        ),
       )
       removePendingAiTask(newEntryId)
       void fetchCloudEntries()
@@ -764,6 +936,9 @@ export default function App() {
         writeGuestEntries(next)
         return next
       })
+      removePendingAiTask(entryId)
+      removeAiFeedbackOverride(entryId)
+      removeAiKeywordsOverride(entryId)
       showToast('鍒犻櫎鎴愬姛')
       return true
     }
@@ -776,6 +951,9 @@ export default function App() {
     }
 
     setEntries((prev) => prev.filter((entry) => entry.id !== entryId))
+    removePendingAiTask(entryId)
+    removeAiFeedbackOverride(entryId)
+    removeAiKeywordsOverride(entryId)
     showToast('鍒犻櫎鎴愬姛')
     return true
   }

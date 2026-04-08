@@ -82,6 +82,24 @@ function normalizeEmotion(rawEntry) {
   return DEFAULT_EMOTION
 }
 
+function normalizeAiKeywordItem(item) {
+  if (!item || typeof item !== 'object') return null
+  const word = typeof item.word === 'string' ? item.word.trim() : ''
+  const type = item.type === 'negative' ? 'negative' : item.type === 'positive' ? 'positive' : ''
+  if (!word || !type) return null
+  return { word, type }
+}
+
+function normalizeAiKeywords(rawEntry) {
+  const source = Array.isArray(rawEntry?.ai_keywords)
+    ? rawEntry.ai_keywords
+    : Array.isArray(rawEntry?.aiKeywords)
+      ? rawEntry.aiKeywords
+      : []
+
+  return source.map(normalizeAiKeywordItem).filter(Boolean)
+}
+
 function normalizeEntry(rawEntry, index) {
   const emotion = normalizeEmotion(rawEntry)
   const rawCreatedAt = rawEntry?.created_at ?? rawEntry?.createdAt
@@ -96,6 +114,7 @@ function normalizeEntry(rawEntry, index) {
     note: typeof rawEntry?.note === 'string' ? rawEntry.note : rawEntry?.text ?? '',
     image: typeof rawEntry?.image === 'string' ? rawEntry.image : rawEntry?.image_url ?? '',
     ai_feedback: typeof rawEntry?.ai_feedback === 'string' ? rawEntry.ai_feedback : rawEntry?.aiFeedback ?? '',
+    ai_keywords: normalizeAiKeywords(rawEntry),
     emotion,
     score: emotion.score,
     mood: emotion.label,

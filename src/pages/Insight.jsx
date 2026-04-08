@@ -66,8 +66,38 @@ function extractCandidateWords(entry) {
     })
 }
 
-function buildWordWeights(entries, matcher) {
+function normalizeEntryKeywords(entry, expectedType) {
+  if (!Array.isArray(entry?.ai_keywords)) return []
+  return entry.ai_keywords
+    .filter((item) => item?.type === expectedType)
+    .map((item) => item.word)
+    .filter(Boolean)
+}
+
+function buildWordWeights(entries, matcher, keywordType) {
   const scopedEntries = (entries ?? []).filter(matcher)
+  const keywordCounter = new Map()
+
+  for (const entry of scopedEntries) {
+    const keywords = normalizeEntryKeywords(entry, keywordType)
+    for (const word of keywords) {
+      keywordCounter.set(word, (keywordCounter.get(word) ?? 0) + 1)
+    }
+  }
+
+  if (keywordCounter.size) {
+    return [...keywordCounter.entries()]
+      .sort((left, right) => {
+        if (right[1] !== left[1]) return right[1] - left[1]
+        return left[0].localeCompare(right[0], 'zh-CN')
+      })
+      .slice(0, 15)
+      .map(([word, count]) => ({
+        word,
+        weight: Math.min(5, Math.max(1, count + 1)),
+      }))
+  }
+
   const counter = new Map()
 
   for (const entry of scopedEntries) {
@@ -90,8 +120,14 @@ function buildWordWeights(entries, matcher) {
 }
 
 export default function InsightPage({ entries }) {
-  const energyWords = useMemo(() => buildWordWeights(entries, (entry) => getEntryScore(entry) >= 4), [entries])
-  const healingWords = useMemo(() => buildWordWeights(entries, (entry) => getEntryScore(entry) <= 3), [entries])
+  const energyWords = useMemo(
+    () => buildWordWeights(entries, (entry) => getEntryScore(entry) >= 4, 'positive'),
+    [entries],
+  )
+  const healingWords = useMemo(
+    () => buildWordWeights(entries, (entry) => getEntryScore(entry) <= 3, 'negative'),
+    [entries],
+  )
 
   return (
     <div className="-mx-4 min-h-screen overflow-y-auto bg-[#f7f6f2] px-4 pt-[max(env(safe-area-inset-top),_24px)] pb-[calc(env(safe-area-inset-bottom)+100px)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
