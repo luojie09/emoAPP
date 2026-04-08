@@ -250,6 +250,24 @@ function cleanupSyncedAiFeedbackOverrides(entries) {
   if (changed) writeAiFeedbackOverrides(overrides)
 }
 
+function cleanupSyncedAiKeywordsOverrides(entries) {
+  if (!entries?.length) return
+  const overrides = readAiKeywordsOverrides()
+  if (!Object.keys(overrides).length) return
+
+  let changed = false
+  for (const entry of entries) {
+    const key = String(entry.id)
+    const cloudKeywords = normalizeAiKeywords(entry.ai_keywords)
+    if (cloudKeywords.length && overrides[key]) {
+      delete overrides[key]
+      changed = true
+    }
+  }
+
+  if (changed) writeAiKeywordsOverrides(overrides)
+}
+
 function getTabFromPath(pathname) {
   if (pathname.startsWith('/history')) return 'history'
   if (pathname.startsWith('/insight')) return 'insight'
@@ -521,7 +539,7 @@ export default function App() {
 
     const { data, error } = await supabase
       .from('entries')
-      .select('id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback')
+      .select('id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback,keywords')
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -531,6 +549,7 @@ export default function App() {
 
     const mappedEntries = (data ?? []).map(rowToEntry)
     cleanupSyncedAiFeedbackOverrides(mappedEntries)
+    cleanupSyncedAiKeywordsOverrides(mappedEntries)
     setEntries(applyAiFeedbackOverrides(mappedEntries))
     if (showSuccessToast) showToast('浜戠鍚屾瀹屾垚')
     return true
@@ -550,7 +569,7 @@ export default function App() {
     const loadEntries = async () => {
       const { data, error } = await supabase
         .from('entries')
-        .select('id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback')
+        .select('id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback,keywords')
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -560,6 +579,7 @@ export default function App() {
 
       const mappedEntries = (data ?? []).map(rowToEntry)
       cleanupSyncedAiFeedbackOverrides(mappedEntries)
+      cleanupSyncedAiKeywordsOverrides(mappedEntries)
       setEntries(applyAiFeedbackOverrides(mappedEntries))
     }
 
@@ -658,9 +678,10 @@ export default function App() {
         image_url: entry.image,
         is_favorite: entry.isFavorite,
         ai_feedback: entry.ai_feedback ?? null,
+        keywords: normalizeAiKeywords(entry.ai_keywords ?? entry.keywords ?? []),
         created_at: createdAtIso,
       })
-      .select('id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback')
+      .select('id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback,keywords')
       .single()
 
     if (error) throw error
@@ -770,10 +791,10 @@ export default function App() {
       const updateAiFeedback = async (content) =>
         supabase
           .from('entries')
-          .update({ ai_feedback: content })
+          .update({ ai_feedback: content, keywords: generatedKeywords })
           .eq('user_id', session.user.id)
           .eq('id', newEntryId)
-          .select('id, ai_feedback')
+          .select('id, ai_feedback, keywords')
           .maybeSingle()
 
       let feedbackToSave = generatedText
@@ -992,6 +1013,7 @@ export default function App() {
       image_url: entry.image,
       is_favorite: entry.isFavorite,
       ai_feedback: entry.ai_feedback ?? '',
+      keywords: normalizeAiKeywords(entry.ai_keywords ?? entry.keywords ?? []),
       created_at: new Date(`${entry.date}T${entry.time}:00`).toISOString(),
     }))
 

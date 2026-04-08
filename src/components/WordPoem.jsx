@@ -70,9 +70,9 @@ export default function WordPoem({ energyWords = [], healingWords = [] }) {
 
       {isEmpty ? (
         <div className="py-8 text-center text-sm font-serif tracking-wide text-gray-400">
-          去记录吧，
+          多写几篇日记吧，
           <br />
-          树洞会用心听你的低语...
+          树洞会慢慢读懂你的生活碎片...
         </div>
       ) : (
         <div className="mt-6 space-y-4 text-center leading-loose">

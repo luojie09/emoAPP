@@ -36,6 +36,93 @@ function extractAiText(payload) {
   return normalizeResponseText(nestedFallback)
 }
 
+function normalizeKeywordItem(item) {
+  if (!item || typeof item !== 'object') return null
+
+  const word = typeof item.word === 'string' ? item.word.trim() : ''
+  const type = item.type === 'negative' ? 'negative' : item.type === 'positive' ? 'positive' : ''
+  if (!word || !type) return null
+
+  const cleanedWord = word.replace(/[^\u4e00-\u9fa5A-Za-z]/g, '').trim()
+  if (!cleanedWord || cleanedWord.length < 2 || cleanedWord.length > 4) return null
+
+  const blacklist = ['图片', '视频', '分享', 'jpeg', 'jpg', 'png', 'gif', '链接']
+  if (blacklist.includes(cleanedWord.toLowerCase())) return null
+
+  return { word: cleanedWord, type }
+}
+
+function normalizeKeywords(value) {
+  if (!Array.isArray(value)) return []
+
+  const seen = new Set()
+  const normalized = []
+
+  for (const item of value) {
+    const keyword = normalizeKeywordItem(item)
+    if (!keyword) continue
+    const dedupeKey = `${keyword.type}:${keyword.word}`
+    if (seen.has(dedupeKey)) continue
+    seen.add(dedupeKey)
+    normalized.push(keyword)
+    if (normalized.length >= 2) break
+  }
+
+  return normalized
+}
+
+function parseStructuredResult(payload) {
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    const directReply = typeof payload.reply === 'string' ? payload.reply.trim() : ''
+    if (directReply) {
+      return {
+        reply: directReply,
+        keywords: normalizeKeywords(payload.keywords),
+      }
+    }
+  }
+
+  const rawText = extractAiText(payload)
+  if (!rawText) return { reply: null, keywords: [] }
+
+  const normalizedText = String(rawText)
+    .trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim()
+
+  const tryParse = (value) => {
+    try {
+      return JSON.parse(value)
+    } catch {
+      return null
+    }
+  }
+
+  const parsed =
+    tryParse(normalizedText) ??
+    (() => {
+      const startIndex = normalizedText.indexOf('{')
+      const endIndex = normalizedText.lastIndexOf('}')
+      if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) return null
+      return tryParse(normalizedText.slice(startIndex, endIndex + 1))
+    })()
+
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    const reply = typeof parsed.reply === 'string' ? parsed.reply.trim() : ''
+    return {
+      reply: reply || null,
+      keywords: normalizeKeywords(parsed.keywords),
+    }
+  }
+
+  return {
+    reply: normalizedText || null,
+    keywords: [],
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'method_not_allowed' })
@@ -81,7 +168,8 @@ export default async function handler(req, res) {
       return res.status(response.status).json({ error: 'deepseek_request_failed' })
     }
 
-    return res.status(200).json({ content: extractAiText(payload) })
+    const structured = parseStructuredResult(payload)
+    return res.status(200).json(structured)
   } catch (error) {
     return res.status(500).json({ error: 'proxy_failed', detail: String(error?.message ?? error) })
   }
