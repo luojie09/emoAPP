@@ -1,4 +1,4 @@
-﻿import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, Star } from 'lucide-react'
 import ImageModal from '../components/ImageModal'
@@ -21,88 +21,15 @@ function formatDetailTime(rawTime) {
   return `${period} ${displayHour}:${minuteText}`
 }
 
-function getEntryTimestamp(entry) {
-  const rawCreatedAt = entry?.created_at ?? entry?.createdAt
-  if (rawCreatedAt) {
-    const createdAt = new Date(rawCreatedAt)
-    if (!Number.isNaN(createdAt.getTime())) return createdAt.getTime()
-  }
-
-  if (entry?.date && entry?.time) {
-    const combined = new Date(`${entry.date}T${entry.time}:00`)
-    if (!Number.isNaN(combined.getTime())) return combined.getTime()
-  }
-
-  return 0
-}
-
 export default function EntryDetailPageV2({ entries }) {
   const navigate = useNavigate()
   const { id } = useParams()
   const [selectedImage, setSelectedImage] = useState(null)
-  const touchStartXRef = useRef(0)
-  const touchEndXRef = useRef(0)
 
   const entry = useMemo(() => (entries ?? []).find((item) => String(item.id) === String(id)), [entries, id])
-  const adjacentEntryIds = useMemo(() => {
-    const currentTimestamp = getEntryTimestamp(entry)
-    if (!entry || !currentTimestamp) return { prevEntryId: null, nextEntryId: null }
-
-    let prevCandidate = null
-    let nextCandidate = null
-
-    for (const item of entries ?? []) {
-      if (!item || String(item.id) === String(entry.id)) continue
-      const itemTimestamp = getEntryTimestamp(item)
-      if (!itemTimestamp) continue
-
-      if (itemTimestamp < currentTimestamp) {
-        if (!prevCandidate || itemTimestamp > getEntryTimestamp(prevCandidate)) {
-          prevCandidate = item
-        }
-      }
-
-      if (itemTimestamp > currentTimestamp) {
-        if (!nextCandidate || itemTimestamp < getEntryTimestamp(nextCandidate)) {
-          nextCandidate = item
-        }
-      }
-    }
-
-    return {
-      prevEntryId: prevCandidate?.id ?? null,
-      nextEntryId: nextCandidate?.id ?? null,
-    }
-  }, [entries, entry])
   const displayTime = formatNavTime(entry)
   const replyText = typeof entry?.ai_feedback === 'string' ? entry.ai_feedback.trim() : ''
   const detailTime = formatDetailTime(entry?.time)
-
-  const handleTouchStart = (event) => {
-    touchStartXRef.current = event.changedTouches?.[0]?.clientX ?? 0
-  }
-
-  const handleTouchEnd = (event) => {
-    touchEndXRef.current = event.changedTouches?.[0]?.clientX ?? 0
-    const delta = touchStartXRef.current - touchEndXRef.current
-
-    if (delta > 50) {
-      if (adjacentEntryIds.nextEntryId) {
-        navigate(`/entry/${adjacentEntryIds.nextEntryId}`)
-      } else {
-        console.info('已经是最新一条记录')
-      }
-      return
-    }
-
-    if (delta < -50) {
-      if (adjacentEntryIds.prevEntryId) {
-        navigate(`/entry/${adjacentEntryIds.prevEntryId}`)
-      } else {
-        console.info('已经是最后一条记录')
-      }
-    }
-  }
 
   if (!entry) {
     return (
@@ -122,11 +49,7 @@ export default function EntryDetailPageV2({ entries }) {
   }
 
   return (
-    <div
-      className="-mx-4 -mt-5 min-h-screen bg-[#f7f6f2] pb-8"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div className="-mx-4 -mt-5 min-h-screen bg-[#f7f6f2] pb-8">
       <div className="border-b border-gray-200/50 bg-transparent px-4 py-3">
         <div className="flex items-center gap-2">
           <button
