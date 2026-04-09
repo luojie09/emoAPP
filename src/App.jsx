@@ -13,6 +13,24 @@ import TodayPage from './pages/TodayPageV2'
 import { getLocalDateTimeParts, groupEntriesByDay, readEntries } from './utils'
 import { supabase } from './supabaseClient'
 
+const ENTRY_SELECT_WITH_KEYWORDS = 'id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback,keywords'
+const ENTRY_SELECT_BASE = 'id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback'
+
+function isMissingKeywordsColumnError(error) {
+  const raw = `${error?.message ?? ''} ${error?.details ?? ''} ${error?.hint ?? ''} ${error?.code ?? ''}`.toLowerCase()
+  return raw.includes('keywords') && (raw.includes('column') || raw.includes('schema') || raw.includes('select'))
+}
+
+async function fetchEntriesRows() {
+  let result = await supabase.from('entries').select(ENTRY_SELECT_WITH_KEYWORDS).order('created_at', { ascending: false })
+
+  if (result.error && isMissingKeywordsColumnError(result.error)) {
+    result = await supabase.from('entries').select(ENTRY_SELECT_BASE).order('created_at', { ascending: false })
+  }
+
+  return result
+}
+
 function rowToEntry(row) {
   const created = row.created_at ? new Date(row.created_at) : new Date()
   const pad = (v) => String(v).padStart(2, '0')
@@ -537,10 +555,7 @@ export default function App() {
   const fetchCloudEntries = async (showSuccessToast = false) => {
     if (!session) return false
 
-    const { data, error } = await supabase
-      .from('entries')
-      .select('id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback,keywords')
-      .order('created_at', { ascending: false })
+    const { data, error } = await fetchEntriesRows()
 
     if (error) {
       showToast('鍔犺浇鏁版嵁澶辫触锛岃绋嶅悗閲嶈瘯')
@@ -567,10 +582,7 @@ export default function App() {
     }
 
     const loadEntries = async () => {
-      const { data, error } = await supabase
-        .from('entries')
-        .select('id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback,keywords')
-        .order('created_at', { ascending: false })
+      const { data, error } = await fetchEntriesRows()
 
       if (error) {
         showToast('鍔犺浇鏁版嵁澶辫触锛岃绋嶅悗閲嶈瘯')
@@ -667,22 +679,26 @@ export default function App() {
     }
 
     if (!session?.user) throw new Error('not-authenticated')
-    const { data, error } = await supabase
-      .from('entries')
-      .insert({
-        user_id: session.user.id,
-        emoji: entry.emotion.emoji,
-        label: entry.emotion.label,
-        score: entry.score,
-        text: entry.note,
-        image_url: entry.image,
-        is_favorite: entry.isFavorite,
-        ai_feedback: entry.ai_feedback ?? null,
-        keywords: normalizeAiKeywords(entry.ai_keywords ?? entry.keywords ?? []),
-        created_at: createdAtIso,
-      })
-      .select('id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback,keywords')
-      .single()
+    const insertPayload = {
+      user_id: session.user.id,
+      emoji: entry.emotion.emoji,
+      label: entry.emotion.label,
+      score: entry.score,
+      text: entry.note,
+      image_url: entry.image,
+      is_favorite: entry.isFavorite,
+      ai_feedback: entry.ai_feedback ?? null,
+      keywords: normalizeAiKeywords(entry.ai_keywords ?? entry.keywords ?? []),
+      created_at: createdAtIso,
+    }
+    let insertResult = await supabase.from('entries').insert(insertPayload).select(ENTRY_SELECT_WITH_KEYWORDS).single()
+
+    if (insertResult.error && isMissingKeywordsColumnError(insertResult.error)) {
+      const { keywords, ...fallbackPayload } = insertPayload
+      insertResult = await supabase.from('entries').insert(fallbackPayload).select(ENTRY_SELECT_BASE).single()
+    }
+
+    const { data, error } = insertResult
 
     if (error) throw error
 
@@ -799,6 +815,15 @@ export default function App() {
 
       let feedbackToSave = generatedText
       let updateResult = await updateAiFeedback(feedbackToSave)
+      if (updateResult.error && isMissingKeywordsColumnError(updateResult.error)) {
+        updateResult = await supabase
+          .from('entries')
+          .update({ ai_feedback: feedbackToSave })
+          .eq('user_id', session.user.id)
+          .eq('id', newEntryId)
+          .select('id, ai_feedback')
+          .maybeSingle()
+      }
       let retryCount = 0
 
       while (updateResult.error && isAiFeedbackTooLongError(updateResult.error) && retryCount < 4) {
@@ -807,6 +832,15 @@ export default function App() {
         feedbackToSave = shrunk
         retryCount += 1
         updateResult = await updateAiFeedback(feedbackToSave)
+        if (updateResult.error && isMissingKeywordsColumnError(updateResult.error)) {
+          updateResult = await supabase
+            .from('entries')
+            .update({ ai_feedback: feedbackToSave })
+            .eq('user_id', session.user.id)
+            .eq('id', newEntryId)
+            .select('id, ai_feedback')
+            .maybeSingle()
+        }
       }
 
       const { data, error } = updateResult
@@ -1017,7 +1051,13 @@ export default function App() {
       created_at: new Date(`${entry.date}T${entry.time}:00`).toISOString(),
     }))
 
-    const { error } = await supabase.from('entries').insert(rows)
+    let importResult = await supabase.from('entries').insert(rows)
+    if (importResult.error && isMissingKeywordsColumnError(importResult.error)) {
+      const fallbackRows = rows.map(({ keywords, ...rest }) => rest)
+      importResult = await supabase.from('entries').insert(fallbackRows)
+    }
+
+    const { error } = importResult
     if (error) {
       showToast('瀵煎叆澶辫触锛岃纭鏂囦欢鏍煎紡姝ｇ‘')
       return

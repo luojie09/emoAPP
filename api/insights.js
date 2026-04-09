@@ -22,6 +22,11 @@ function normalizeKeywords(value) {
   return value.map(normalizeKeywordItem).filter(Boolean)
 }
 
+function isMissingKeywordsColumnError(error) {
+  const raw = `${error?.message ?? ''} ${error?.details ?? ''} ${error?.hint ?? ''} ${error?.code ?? ''}`.toLowerCase()
+  return raw.includes('keywords') && (raw.includes('column') || raw.includes('schema') || raw.includes('select'))
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'method_not_allowed' })
@@ -58,6 +63,9 @@ export default async function handler(req, res) {
       .order('created_at', { ascending: false })
 
     if (error) {
+      if (isMissingKeywordsColumnError(error)) {
+        return res.status(200).json({ keywords: [] })
+      }
       return res.status(500).json({ error: 'insights_query_failed' })
     }
 
