@@ -13,18 +13,23 @@ import TodayPage from './pages/TodayPageV2'
 import { getLocalDateTimeParts, groupEntriesByDay, readEntries } from './utils'
 import { supabase } from './supabaseClient'
 
-const ENTRY_SELECT_WITH_KEYWORDS = 'id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback,keywords'
+const ENTRY_SELECT_WITH_AI_KEYWORDS = 'id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback,ai_keywords'
+const ENTRY_SELECT_WITH_LEGACY_KEYWORDS = 'id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback,keywords'
 const ENTRY_SELECT_BASE = 'id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback'
 
-function isMissingKeywordsColumnError(error) {
+function isMissingKeywordColumnError(error) {
   const raw = `${error?.message ?? ''} ${error?.details ?? ''} ${error?.hint ?? ''} ${error?.code ?? ''}`.toLowerCase()
-  return raw.includes('keywords') && (raw.includes('column') || raw.includes('schema') || raw.includes('select'))
+  return (raw.includes('ai_keywords') || raw.includes('keywords')) && (raw.includes('column') || raw.includes('schema') || raw.includes('select'))
 }
 
 async function fetchEntriesRows() {
-  let result = await supabase.from('entries').select(ENTRY_SELECT_WITH_KEYWORDS).order('created_at', { ascending: false })
+  let result = await supabase.from('entries').select(ENTRY_SELECT_WITH_AI_KEYWORDS).order('created_at', { ascending: false })
 
-  if (result.error && isMissingKeywordsColumnError(result.error)) {
+  if (result.error && isMissingKeywordColumnError(result.error)) {
+    result = await supabase.from('entries').select(ENTRY_SELECT_WITH_LEGACY_KEYWORDS).order('created_at', { ascending: false })
+  }
+
+  if (result.error && isMissingKeywordColumnError(result.error)) {
     result = await supabase.from('entries').select(ENTRY_SELECT_BASE).order('created_at', { ascending: false })
   }
 
@@ -688,13 +693,22 @@ export default function App() {
       image_url: entry.image,
       is_favorite: entry.isFavorite,
       ai_feedback: entry.ai_feedback ?? null,
-      keywords: normalizeAiKeywords(entry.ai_keywords ?? entry.keywords ?? []),
+      ai_keywords: normalizeAiKeywords(entry.ai_keywords ?? entry.keywords ?? []),
       created_at: createdAtIso,
     }
-    let insertResult = await supabase.from('entries').insert(insertPayload).select(ENTRY_SELECT_WITH_KEYWORDS).single()
+    let insertResult = await supabase.from('entries').insert(insertPayload).select(ENTRY_SELECT_WITH_AI_KEYWORDS).single()
 
-    if (insertResult.error && isMissingKeywordsColumnError(insertResult.error)) {
-      const { keywords, ...fallbackPayload } = insertPayload
+    if (insertResult.error && isMissingKeywordColumnError(insertResult.error)) {
+      const { ai_keywords, ...fallbackPayload } = insertPayload
+      insertResult = await supabase
+        .from('entries')
+        .insert({ ...fallbackPayload, keywords: ai_keywords })
+        .select(ENTRY_SELECT_WITH_LEGACY_KEYWORDS)
+        .single()
+    }
+
+    if (insertResult.error && isMissingKeywordColumnError(insertResult.error)) {
+      const { ai_keywords, ...fallbackPayload } = insertPayload
       insertResult = await supabase.from('entries').insert(fallbackPayload).select(ENTRY_SELECT_BASE).single()
     }
 
@@ -807,15 +821,24 @@ export default function App() {
       const updateAiFeedback = async (content) =>
         supabase
           .from('entries')
-          .update({ ai_feedback: content, keywords: generatedKeywords })
+          .update({ ai_feedback: content, ai_keywords: generatedKeywords })
           .eq('user_id', session.user.id)
           .eq('id', newEntryId)
-          .select('id, ai_feedback, keywords')
+          .select('id, ai_feedback, ai_keywords')
           .maybeSingle()
 
       let feedbackToSave = generatedText
       let updateResult = await updateAiFeedback(feedbackToSave)
-      if (updateResult.error && isMissingKeywordsColumnError(updateResult.error)) {
+      if (updateResult.error && isMissingKeywordColumnError(updateResult.error)) {
+        updateResult = await supabase
+          .from('entries')
+          .update({ ai_feedback: feedbackToSave, keywords: generatedKeywords })
+          .eq('user_id', session.user.id)
+          .eq('id', newEntryId)
+          .select('id, ai_feedback, keywords')
+          .maybeSingle()
+      }
+      if (updateResult.error && isMissingKeywordColumnError(updateResult.error)) {
         updateResult = await supabase
           .from('entries')
           .update({ ai_feedback: feedbackToSave })
@@ -832,7 +855,16 @@ export default function App() {
         feedbackToSave = shrunk
         retryCount += 1
         updateResult = await updateAiFeedback(feedbackToSave)
-        if (updateResult.error && isMissingKeywordsColumnError(updateResult.error)) {
+        if (updateResult.error && isMissingKeywordColumnError(updateResult.error)) {
+          updateResult = await supabase
+            .from('entries')
+            .update({ ai_feedback: feedbackToSave, keywords: generatedKeywords })
+            .eq('user_id', session.user.id)
+            .eq('id', newEntryId)
+            .select('id, ai_feedback, keywords')
+            .maybeSingle()
+        }
+        if (updateResult.error && isMissingKeywordColumnError(updateResult.error)) {
           updateResult = await supabase
             .from('entries')
             .update({ ai_feedback: feedbackToSave })
@@ -1047,13 +1079,17 @@ export default function App() {
       image_url: entry.image,
       is_favorite: entry.isFavorite,
       ai_feedback: entry.ai_feedback ?? '',
-      keywords: normalizeAiKeywords(entry.ai_keywords ?? entry.keywords ?? []),
+      ai_keywords: normalizeAiKeywords(entry.ai_keywords ?? entry.keywords ?? []),
       created_at: new Date(`${entry.date}T${entry.time}:00`).toISOString(),
     }))
 
     let importResult = await supabase.from('entries').insert(rows)
-    if (importResult.error && isMissingKeywordsColumnError(importResult.error)) {
-      const fallbackRows = rows.map(({ keywords, ...rest }) => rest)
+    if (importResult.error && isMissingKeywordColumnError(importResult.error)) {
+      const fallbackRows = rows.map(({ ai_keywords, ...rest }) => ({ ...rest, keywords: ai_keywords }))
+      importResult = await supabase.from('entries').insert(fallbackRows)
+    }
+    if (importResult.error && isMissingKeywordColumnError(importResult.error)) {
+      const fallbackRows = rows.map(({ ai_keywords, ...rest }) => rest)
       importResult = await supabase.from('entries').insert(fallbackRows)
     }
 

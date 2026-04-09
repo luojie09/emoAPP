@@ -22,9 +22,9 @@ function normalizeKeywords(value) {
   return value.map(normalizeKeywordItem).filter(Boolean)
 }
 
-function isMissingKeywordsColumnError(error) {
+function isMissingKeywordColumnError(error) {
   const raw = `${error?.message ?? ''} ${error?.details ?? ''} ${error?.hint ?? ''} ${error?.code ?? ''}`.toLowerCase()
-  return raw.includes('keywords') && (raw.includes('column') || raw.includes('schema') || raw.includes('select'))
+  return (raw.includes('ai_keywords') || raw.includes('keywords')) && (raw.includes('column') || raw.includes('schema') || raw.includes('select'))
 }
 
 export default async function handler(req, res) {
@@ -56,21 +56,23 @@ export default async function handler(req, res) {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
 
   try {
-    const { data, error } = await supabase
-      .from('entries')
-      .select('keywords,created_at')
-      .gte('created_at', since)
-      .order('created_at', { ascending: false })
+    let result = await supabase.from('entries').select('ai_keywords,created_at').gte('created_at', since).order('created_at', { ascending: false })
+
+    if (result.error && isMissingKeywordColumnError(result.error)) {
+      result = await supabase.from('entries').select('keywords,created_at').gte('created_at', since).order('created_at', { ascending: false })
+    }
+
+    const { data, error } = result
 
     if (error) {
-      if (isMissingKeywordsColumnError(error)) {
+      if (isMissingKeywordColumnError(error)) {
         return res.status(200).json({ keywords: [] })
       }
       return res.status(500).json({ error: 'insights_query_failed' })
     }
 
     const keywords = (data ?? []).flatMap((row) => {
-      const normalized = normalizeKeywords(row?.keywords)
+      const normalized = normalizeKeywords(row?.ai_keywords ?? row?.keywords)
       return normalized.map((keyword) => ({
         ...keyword,
         created_at: row?.created_at ?? null,
