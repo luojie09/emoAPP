@@ -12,6 +12,8 @@ import ProfilePage from './pages/ProfilePageV2'
 import TodayPage from './pages/TodayPageV2'
 import { getLocalDateTimeParts, groupEntriesByDay, readEntries } from './utils'
 import { supabase } from './supabaseClient'
+import aiFeedbackSystemPromptTemplate from './prompts/ai-feedback-system.md?raw'
+import aiMetaphorsTemplate from './prompts/ai-metaphors.md?raw'
 
 const ENTRY_SELECT_WITH_AI_KEYWORDS = 'id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback,ai_keywords'
 const ENTRY_SELECT_WITH_LEGACY_KEYWORDS = 'id,user_id,emoji,label,score,text,image_url,is_favorite,created_at,ai_feedback,keywords'
@@ -59,13 +61,21 @@ const GUEST_ENTRIES_KEY = 'guest_entries'
 const PENDING_AI_TASKS_KEY = 'pending_ai_tasks'
 const AI_FEEDBACK_OVERRIDES_KEY = 'ai_feedback_overrides'
 const AI_KEYWORDS_OVERRIDES_KEY = 'ai_keywords_overrides'
-const AI_KEYWORDS_BACKFILL_SKIPS_KEY = 'ai_keywords_backfill_skips'
 const AI_REQUEST_TIMEOUT_MS = 120000
 const AI_RETRY_BASE_DELAY_MS = 15000
 const AI_RETRY_MAX_DELAY_MS = 5 * 60 * 1000
 const MIN_AI_FEEDBACK_CHARS = 60
-const AI_TASK_MODE_FULL = 'full'
-const AI_TASK_MODE_KEYWORDS_ONLY = 'keywords-only'
+
+function parseMarkdownListItems(markdownText) {
+  return String(markdownText)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'))
+    .map((line) => line.replace(/^[-*+]\s+/, '').trim())
+    .filter(Boolean)
+}
+
+const FEEDBACK_METAPHORS = parseMarkdownListItems(aiMetaphorsTemplate)
 
 function normalizeAiKeywordItem(item) {
   if (!item || typeof item !== 'object') return null
@@ -151,7 +161,6 @@ function readPendingAiTasks() {
         text: typeof task?.text === 'string' ? task.text : '',
         score: Number(task?.score ?? 3),
         emotionLabel: typeof task?.emotionLabel === 'string' ? task.emotionLabel : '',
-        mode: task?.mode === AI_TASK_MODE_KEYWORDS_ONLY ? AI_TASK_MODE_KEYWORDS_ONLY : AI_TASK_MODE_FULL,
         attemptCount: Number.isFinite(Number(task?.attemptCount)) ? Number(task.attemptCount) : 0,
         nextRetryAt: Number.isFinite(Number(task?.nextRetryAt)) ? Number(task.nextRetryAt) : 0,
       }))
@@ -199,37 +208,6 @@ function readAiKeywordsOverrides() {
 
 function writeAiKeywordsOverrides(overrides) {
   localStorage.setItem(AI_KEYWORDS_OVERRIDES_KEY, JSON.stringify(overrides))
-}
-
-function readAiKeywordsBackfillSkips() {
-  const raw = localStorage.getItem(AI_KEYWORDS_BACKFILL_SKIPS_KEY)
-  if (!raw) return new Set()
-
-  try {
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return new Set()
-    return new Set(parsed.map((item) => String(item)))
-  } catch {
-    return new Set()
-  }
-}
-
-function writeAiKeywordsBackfillSkips(skipSet) {
-  localStorage.setItem(AI_KEYWORDS_BACKFILL_SKIPS_KEY, JSON.stringify([...skipSet]))
-}
-
-function markAiKeywordsBackfillSkipped(entryId) {
-  if (!entryId) return
-  const skipSet = readAiKeywordsBackfillSkips()
-  skipSet.add(String(entryId))
-  writeAiKeywordsBackfillSkips(skipSet)
-}
-
-function unmarkAiKeywordsBackfillSkipped(entryId) {
-  if (!entryId) return
-  const skipSet = readAiKeywordsBackfillSkips()
-  if (!skipSet.delete(String(entryId))) return
-  writeAiKeywordsBackfillSkips(skipSet)
 }
 
 function setAiFeedbackOverride(entryId, aiFeedback) {
@@ -408,84 +386,26 @@ function parseAiResponsePayload(payload) {
   return { reply: normalizedText || null, keywords: [] }
 }
 
+function renderPromptTemplate(template, variables = {}) {
+  return String(template)
+    .replace(/\{\{\s*(\w+)\s*\}\}/g, (_match, key) => String(variables[key] ?? ''))
+    .trim()
+}
+
 async function requestAiFeedback({ score, emotionLabel, content, userName }) {
   const safeUserName = userName || '朋友'
   const safeContent = typeof content === 'string' ? content.trim() : ''
   const safeScore = Number.isFinite(Number(score)) ? Number(score) : 3
-  const granularMetaphors = [
-    '中国古代诗词（侧重引用李白、苏轼等豪放派的豁达与磅礴意象）',
-    '中国古代诗词（侧重引用婉约派的细腻与温柔意象）',
-    '欧美现代诗（如辛波斯卡、佩索阿、里尔克等，侧重生活哲理与现代人的精神共鸣）',
-    '极具质感的现当代散文或细腻的日本文学/东南亚文学片段',
-    '天文学的极致浪漫（必须且只能使用天文学现象，如洛希极限、星际尘埃、双星系统、事件视界等）',
-    '物理与化学的冷峻浪漫（必须且只能使用理化概念，如量子纠缠、熵增、半衰期、化学键、结晶等）',
-    '生物学的坚韧隐喻（必须且只能使用生物现象，如趋光性、鲸落、共生关系、休眠期、细胞更新等）',
-    '地理气象学的宏大视角（必须且只能使用地质/气象现象，如洋流、季风、地壳运动、喀斯特地貌、极光等）',
-    '东方古典哲学（侧重庄子的“齐物”或老子的自然无为、顺应规律）',
-    '斯多葛学派智慧（侧重课题分离、控制二分法、保持内在的绝对稳定）',
-    '西方现代哲学（侧重存在主义的“自我建构”、尼采的超人哲学，赋予痛苦以意义）',
-    '社科历史的人文微光（讲述历史上伟大人物极其微小、充满人味的真实瞬间，或有趣的心理学/社会学效应）',
-    '北欧或古希腊神话中的隐喻与意象',
-    '印第安传说或冷门的小众跨文化古老传说',
-    '带有东方禅宗意味的极简小故事或寓言',
-  ]
-  const randomMetaphor = granularMetaphors[Math.floor(Math.random() * granularMetaphors.length)]
+  const randomMetaphor = FEEDBACK_METAPHORS.length
+    ? FEEDBACK_METAPHORS[Math.floor(Math.random() * FEEDBACK_METAPHORS.length)]
+    : '细腻的生活意象'
 
-  const systemPrompt = `你是一个名为“时光树洞”的专属情绪陪伴者。你的任务是阅读用户的日记，并给予一封温暖、极具共情力、且富有诗意与智慧的回信。
-
-【用户当前状态】
-用户昵称：${safeUserName}
-当前情绪指数：${safeScore} / 5 （1分代表极度低落/崩溃，5分代表极度开心/狂喜，3分为平静/中性）
-用户日记正文：${safeContent}
-
-【核心回信守则】
-1. 强制开篇：必须且只能以“亲爱的${safeUserName}：”作为回信的第一句话，独占一行。
-
-2. 动态情绪响应策略（至关重要）：
-   - 情绪指数 1-2 分：绝对不要急于讲大道理或盲目打气！请使用最轻柔、接纳的语气，允许对方难过。通过“重塑式共情”（如：我能感觉到你文字里透出的疲惫...）来接住情绪。此时多用陪伴的口吻，挑选最温和的隐喻。
-   - 情绪指数 3 分：以老友闲谈的口吻，捕捉日记中细微的思考或日常碎片，进行温和的探讨与精神共鸣。
-   - 情绪指数 4-5 分：感受并放大对方的喜悦与高光时刻！语气要轻快、明朗，与用户一起庆祝当下的美好或生命力。
-
-3. 叙事疗法与高维隐喻（点睛之笔，拒绝烂俗）：
-   - 【本次回信强制使用的隐喻维度】：${randomMetaphor}
-   - 【大象无形原则】：引用或隐喻必须极其丝滑地揉进上下文。绝对不要出现“这让我想起了一个哲学概念...”或“李白曾经说过...”这种僵硬的引语。要把科学现象、诗词或哲学思想化用为你自己的语言，不留痕迹地娓娓道来。
-   - 【黑名单】：绝对禁止提及“裂痕的罐子”、“海星”、“破茧成蝶”、“雨后彩虹”等烂俗的儿童绘本式意象，绝对禁止《心灵鸡汤》式的套话。
-
-4. 叙事与文风的“呼吸感”：
-   - 绝不使用“首先、其次”、“建议你”这种说教/爹味词汇。
-   - 绝不使用任何列表（1. 2. 3.）或小标题排版。
-   - 采用散文诗般的语言，克制且真诚。
-   - 必须通过高频分段来制造视觉上的“留白”，每段在 4句话左右。
-
-5. 篇幅与结尾：
-   - 字数严格控制在 300 - 500 字之间。
-   - 在信的最末尾，极其自然地带上且仅带上一个与当前情绪最契合的 emoji（如 🌧️, ☕, 🫂, 🍃, ✨, 🌻）。
-
-【强制输出格式与生活碎片提炼法则】
-你必须且只能返回一个合法的 JSON 格式对象，绝对不要包含任何 Markdown 标记。
-JSON 结构如下：
-{
-  "reply": "这里是你生成的那封300-500字的回信正文",
-  "keywords": [
-    {"word": "词汇1", "type": "positive"},
-    {"word": "词汇2", "type": "negative"}
-  ]
-}
-
-【Keywords 提炼最高准则】（违背将导致系统崩溃！）
-1. 词汇性质（核心变化）：绝对不要提取空泛的情绪词（如“开心”、“难过”）。你必须提取日记中引发该情绪的核心事件、具体事物、或具有画面感的意象。
-   - 示例 1：用户很开心，日记提到去公园感受春天。正确提取 -> {"word": "春日", "type": "positive"}
-   - 示例 2：用户很崩溃，日记提到今天面试搞砸了。正确提取 -> {"word": "面试", "type": "negative"}
-   - 示例 3：用户很平静，日记提到喝了一杯好喝的拿铁。正确提取 -> {"word": "咖啡", "type": "positive"}
-2. 长度与字数：必须严格提炼为 2 到 4 个汉字的精简词汇。绝对禁止提取短语或句子。
-3. 黑名单（绝对禁止提取）：
-   - 彻底屏蔽系统/技术词汇：图片、视频、分享、jpeg、链接等。
-   - 彻底屏蔽口语化废话、代词、动词短语：我想、他想、那么、然后、在这里、哈哈、不管怎么样、觉得好累等。
-4. 分类依据（基于该事物在日记中带给用户的感受）：
-   - "positive"（能量源泉）：在日记中带给用户治愈、美好、希望、力量的事物/事件。
-   - "negative"（需要和解）：在日记中给用户带来压力、挫败、消耗、焦虑的事物/事件。
-5. 数量：每次最多只提炼 1 到 2 个最核心的生活碎片词汇，宁缺毋滥。如果没有具体的具象词，可以返回空数组 []。
-`
+    const systemPrompt = renderPromptTemplate(aiFeedbackSystemPromptTemplate, {
+     userName: safeUserName,
+     score: safeScore,
+     content: safeContent,
+     metaphor: randomMetaphor,
+    })
 
   const userPrompt = `请基于以上内容写一封回信。当前情绪标签：${emotionLabel || '无'}`
   const body = {
@@ -527,70 +447,6 @@ JSON 结构如下：
   }
 }
 
-async function requestAiKeywordsBackfill({ score, emotionLabel, content, userName }) {
-  const safeUserName = userName || '朋友'
-  const safeContent = typeof content === 'string' ? content.trim() : ''
-  const safeScore = Number.isFinite(Number(score)) ? Number(score) : 3
-  const systemPrompt = `你是一个名为“时光树洞”的生活碎片提炼器。你的任务是阅读用户的日记，只提炼出引发情绪的核心事件、具体事物或具象意象。
-
-【用户当前状态】
-用户昵称：${safeUserName}
-当前情绪指数：${safeScore} / 5
-用户日记正文：${safeContent}
-
-【强制输出格式与生活碎片提炼法则】
-你必须且只能返回一个合法的 JSON 格式对象，绝对不要包含任何 Markdown 标记。
-JSON 结构如下：
-{
-  "keywords": [
-    {"word": "词汇1", "type": "positive"},
-    {"word": "词汇2", "type": "negative"}
-  ]
-}
-
-【Keywords 提炼最高准则】
-1. 绝对不要提取空泛的情绪词（如“开心”、“难过”），只能提炼引发情绪的核心事件、具体事物或意象。
-2. 词汇必须严格控制在 2 到 4 个汉字。
-3. 禁止输出系统/技术词汇、口语废话、代词、无意义动词短语。
-4. "positive" 表示带来治愈、美好、希望、力量的生活碎片；"negative" 表示带来压力、挫败、消耗、焦虑的生活碎片。
-5. 每次最多提炼 1 到 2 个词，宁缺毋滥。若确实没有合适的具象词，可以返回空数组 []。`
-
-  const userPrompt = `请只提炼关键词，不要写回信。当前情绪标签：${emotionLabel || '无'}`
-  const body = {
-    model: 'deepseek-chat',
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ],
-  }
-
-  const controller = new AbortController()
-  const timer = window.setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS)
-
-  try {
-    const proxyResponse = await fetch('/api/treehole-feedback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    })
-
-    if (!proxyResponse.ok) {
-      const errorText = await proxyResponse.text().catch(() => '')
-      console.error('AI keyword backfill request failed:', proxyResponse.status, errorText)
-      return null
-    }
-
-    const json = await proxyResponse.json()
-    const normalized = parseAiResponsePayload(json)
-    return normalizeAiKeywords(normalized.keywords)
-  } catch (error) {
-    console.error('AI keyword backfill request threw:', error)
-    return null
-  } finally {
-    window.clearTimeout(timer)
-  }
-}
 export default function App() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -827,16 +683,11 @@ export default function App() {
     const existing = readPendingAiTasks()
     const currentTask = existing.find((item) => String(item.entryId) === String(task.entryId))
     const deduped = existing.filter((item) => String(item.entryId) !== String(task.entryId))
-    const nextMode =
-      task?.mode === AI_TASK_MODE_KEYWORDS_ONLY && currentTask?.mode !== AI_TASK_MODE_FULL
-        ? AI_TASK_MODE_KEYWORDS_ONLY
-        : AI_TASK_MODE_FULL
     deduped.push({
       entryId: task.entryId,
       text: task.text,
       score: Number(task?.score ?? currentTask?.score ?? 3),
       emotionLabel: task?.emotionLabel ?? currentTask?.emotionLabel ?? '',
-      mode: nextMode,
       attemptCount: currentTask?.attemptCount ?? 0,
       nextRetryAt: currentTask?.nextRetryAt ?? 0,
     })
@@ -862,7 +713,7 @@ export default function App() {
     writePendingAiTasks(next)
   }
 
-  const generateAndSaveAIFeedback = async (newEntryId, text, score, emotionLabel = '', mode = AI_TASK_MODE_FULL) => {
+  const generateAndSaveAIFeedback = async (newEntryId, text, score, emotionLabel = '') => {
     const taskKey = String(newEntryId ?? '')
     if (!taskKey) return 'fatal'
     if (aiInFlightRef.current.has(taskKey)) return 'inflight'
@@ -897,35 +748,17 @@ export default function App() {
       let generatedText = ''
       let generatedKeywords = []
 
-      if (mode === AI_TASK_MODE_KEYWORDS_ONLY) {
-        const keywordResult = await requestAiKeywordsBackfill({
-          score: Number(score ?? 3),
-          emotionLabel,
-          content: normalizedText,
-          userName: resolvedUserName || '朋友',
-        })
-        if (keywordResult === null) {
-          return 'retry'
-        }
-        generatedKeywords = normalizeAiKeywords(keywordResult)
-        if (!generatedKeywords.length) {
-          markAiKeywordsBackfillSkipped(newEntryId)
-          removePendingAiTask(newEntryId)
-          return 'success'
-        }
-      } else {
-        const aiResult = await requestAiFeedback({
-          score: Number(score ?? 3),
-          emotionLabel,
-          content: normalizedText,
-          userName: resolvedUserName || '朋友',
-        })
-        generatedText = typeof aiResult?.reply === 'string' ? aiResult.reply.trim() : ''
-        generatedKeywords = normalizeAiKeywords(aiResult?.keywords)
+      const aiResult = await requestAiFeedback({
+        score: Number(score ?? 3),
+        emotionLabel,
+        content: normalizedText,
+        userName: resolvedUserName || '朋友',
+      })
+      generatedText = typeof aiResult?.reply === 'string' ? aiResult.reply.trim() : ''
+      generatedKeywords = normalizeAiKeywords(aiResult?.keywords)
 
-        if (!generatedText) {
-          return 'retry'
-        }
+      if (!generatedText) {
+        return 'retry'
       }
 
       if (isGuest) {
@@ -934,14 +767,13 @@ export default function App() {
           String(entry.id) === String(newEntryId)
             ? {
                 ...entry,
-                ai_feedback: mode === AI_TASK_MODE_KEYWORDS_ONLY ? entry.ai_feedback : generatedText,
+                ai_feedback: generatedText,
                 ai_keywords: generatedKeywords,
               }
             : entry,
         )
         writeGuestEntries(next)
         setEntries(next)
-        unmarkAiKeywordsBackfillSkipped(newEntryId)
         removePendingAiTask(newEntryId)
         return 'success'
       }
@@ -959,40 +791,18 @@ export default function App() {
           .select('id, ai_feedback, ai_keywords')
           .maybeSingle()
 
-      const updateKeywordsOnly = async () =>
-        supabase
+      let feedbackToSave = generatedText
+      let updateResult = await updateAiFeedback(feedbackToSave)
+      if (updateResult.error && isMissingKeywordColumnError(updateResult.error)) {
+        updateResult = await supabase
           .from('entries')
-          .update({ ai_keywords: generatedKeywords })
+          .update({ ai_feedback: feedbackToSave, keywords: generatedKeywords })
           .eq('user_id', session.user.id)
           .eq('id', newEntryId)
-          .select('id, ai_keywords')
+          .select('id, ai_feedback, keywords')
           .maybeSingle()
-
-      let feedbackToSave = generatedText
-      let updateResult =
-        mode === AI_TASK_MODE_KEYWORDS_ONLY ? await updateKeywordsOnly() : await updateAiFeedback(feedbackToSave)
-      if (updateResult.error && isMissingKeywordColumnError(updateResult.error)) {
-        updateResult =
-          mode === AI_TASK_MODE_KEYWORDS_ONLY
-            ? await supabase
-                .from('entries')
-                .update({ keywords: generatedKeywords })
-                .eq('user_id', session.user.id)
-                .eq('id', newEntryId)
-                .select('id, keywords')
-                .maybeSingle()
-            : await supabase
-                .from('entries')
-                .update({ ai_feedback: feedbackToSave, keywords: generatedKeywords })
-                .eq('user_id', session.user.id)
-                .eq('id', newEntryId)
-                .select('id, ai_feedback, keywords')
-                .maybeSingle()
       }
       if (updateResult.error && isMissingKeywordColumnError(updateResult.error)) {
-        if (mode === AI_TASK_MODE_KEYWORDS_ONLY) {
-          return 'retry'
-        }
         updateResult = await supabase
           .from('entries')
           .update({ ai_feedback: feedbackToSave })
@@ -1003,7 +813,7 @@ export default function App() {
       }
       let retryCount = 0
 
-      while (mode !== AI_TASK_MODE_KEYWORDS_ONLY && updateResult.error && isAiFeedbackTooLongError(updateResult.error) && retryCount < 4) {
+      while (updateResult.error && isAiFeedbackTooLongError(updateResult.error) && retryCount < 4) {
         const shrunk = shrinkAiFeedback(feedbackToSave)
         if (!shrunk || shrunk === feedbackToSave) break
         feedbackToSave = shrunk
@@ -1033,9 +843,6 @@ export default function App() {
 
       if (error) {
         console.error('AI feedback update failed:', error)
-        if (mode === AI_TASK_MODE_KEYWORDS_ONLY) {
-          return 'retry'
-        }
         setAiFeedbackOverride(newEntryId, feedbackToSave)
         setAiKeywordsOverride(newEntryId, generatedKeywords)
         setEntries((prev) =>
@@ -1054,9 +861,6 @@ export default function App() {
           entryId: newEntryId,
           userId: session.user.id,
         })
-        if (mode === AI_TASK_MODE_KEYWORDS_ONLY) {
-          return 'retry'
-        }
         setAiFeedbackOverride(newEntryId, feedbackToSave)
         setAiKeywordsOverride(newEntryId, generatedKeywords)
         setEntries((prev) =>
@@ -1070,17 +874,14 @@ export default function App() {
         return 'success'
       }
 
-      if (mode !== AI_TASK_MODE_KEYWORDS_ONLY) {
-        removeAiFeedbackOverride(newEntryId)
-      }
-      unmarkAiKeywordsBackfillSkipped(newEntryId)
+      removeAiFeedbackOverride(newEntryId)
       setAiKeywordsOverride(newEntryId, generatedKeywords)
       setEntries((prev) =>
         prev.map((entry) =>
           String(entry.id) === String(newEntryId)
             ? {
                 ...entry,
-                ai_feedback: mode === AI_TASK_MODE_KEYWORDS_ONLY ? entry.ai_feedback : feedbackToSave,
+                ai_feedback: feedbackToSave,
                 ai_keywords: generatedKeywords,
               }
             : entry,
@@ -1101,14 +902,12 @@ export default function App() {
     if (!Array.isArray(entries) || !entries.length) return
 
     const existingTasks = readPendingAiTasks()
-    const skipSet = readAiKeywordsBackfillSkips()
     const taskMap = new Map(existingTasks.map((item) => [String(item.entryId), item]))
     let changed = false
 
     for (const entry of entries) {
       const noteText = typeof entry?.note === 'string' ? entry.note.trim() : ''
       const replyText = typeof entry?.ai_feedback === 'string' ? entry.ai_feedback.trim() : ''
-      const hasKeywords = Array.isArray(entry?.ai_keywords) && entry.ai_keywords.length > 0
       const entryId = String(entry?.id ?? '')
       if (!entryId) continue
 
@@ -1117,22 +916,15 @@ export default function App() {
         continue
       }
 
-      const desiredMode = !replyText ? AI_TASK_MODE_FULL : !hasKeywords && !skipSet.has(entryId) ? AI_TASK_MODE_KEYWORDS_ONLY : null
-
-      if (!desiredMode) {
+      if (replyText) {
         if (taskMap.delete(entryId)) changed = true
         continue
       }
 
       const currentTask = taskMap.get(entryId)
-      const nextMode =
-        desiredMode === AI_TASK_MODE_FULL || currentTask?.mode === AI_TASK_MODE_FULL
-          ? AI_TASK_MODE_FULL
-          : AI_TASK_MODE_KEYWORDS_ONLY
 
       if (
         !currentTask ||
-        currentTask.mode !== nextMode ||
         currentTask.text !== noteText ||
         Number(currentTask.score) !== Number(entry?.emotion?.score ?? entry?.score ?? 3) ||
         (currentTask.emotionLabel ?? '') !== (entry?.emotion?.label ?? entry?.mood ?? '')
@@ -1142,7 +934,6 @@ export default function App() {
           text: noteText,
           score: Number(entry?.emotion?.score ?? entry?.score ?? 3),
           emotionLabel: entry?.emotion?.label ?? entry?.mood ?? '',
-          mode: nextMode,
           attemptCount: currentTask?.attemptCount ?? 0,
           nextRetryAt: currentTask?.nextRetryAt ?? 0,
         })
@@ -1166,7 +957,7 @@ export default function App() {
 
       try {
         for (const task of tasks) {
-          const result = await generateAndSaveAIFeedback(task.entryId, task.text, task.score, task.emotionLabel, task.mode)
+          const result = await generateAndSaveAIFeedback(task.entryId, task.text, task.score, task.emotionLabel)
           if (result === 'fatal') {
             removePendingAiTask(task.entryId)
           } else if (result === 'retry') {
